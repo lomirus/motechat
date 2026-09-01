@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import { extractResponseText, responsesUrl } from './lib/responses'
+  import { extractResponseText, responsesUrl, responseTextDeltas } from './lib/responses'
 
   type Theme = 'system' | 'light' | 'dark'
   type Message = { role: 'user' | 'assistant'; content: string }
@@ -64,6 +64,13 @@
     }
   }
 
+  async function showMessages(next: Message[]) {
+    const wasAtBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2
+    messages = next
+    await tick()
+    if (wasAtBottom) messageEnd?.scrollIntoView()
+  }
+
   async function sendMessage() {
     const content = prompt.trim()
     if (!content || loading) return
@@ -77,13 +84,11 @@
     }
 
     const nextMessages: Message[] = [...messages, { role: 'user', content }]
-    messages = nextMessages
     prompt = ''
     error = ''
     loading = true
-    await tick()
+    await showMessages(nextMessages)
     resizeComposer()
-    messageEnd?.scrollIntoView({ behavior: 'smooth' })
 
     try {
       const response = await fetch(responsesUrl(baseUrl), {
@@ -92,17 +97,28 @@
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey.trim()}`,
         },
-        body: JSON.stringify({ model: model.trim(), input: nextMessages }),
+        body: JSON.stringify({ model: model.trim(), input: nextMessages, stream: true }),
       })
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(data?.error?.message || `Request failed (${response.status}).`)
-      messages = [...nextMessages, { role: 'assistant', content: extractResponseText(data) }]
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data?.error?.message || `Request failed (${response.status}).`)
+      }
+
+      if (response.body && response.headers.get('content-type')?.includes('text/event-stream')) {
+        let reply = ''
+        for await (const delta of responseTextDeltas(response.body)) {
+          reply += delta
+          await showMessages([...nextMessages, { role: 'assistant', content: reply }])
+        }
+        if (!reply) throw new Error('The service returned an empty response.')
+      } else {
+        const data = await response.json().catch(() => ({}))
+        await showMessages([...nextMessages, { role: 'assistant', content: extractResponseText(data) }])
+      }
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Request failed. Please try again.'
     } finally {
       loading = false
-      await tick()
-      messageEnd?.scrollIntoView({ behavior: 'smooth' })
     }
   }
 
@@ -154,7 +170,7 @@
               <div class="message-content">{message.content}</div>
             </article>
           {/each}
-          {#if loading}
+          {#if loading && messages[messages.length - 1]?.role !== 'assistant'}
             <article class="assistant">
               <span class="avatar" aria-hidden="true"></span>
               <div class="typing" aria-label="AI is responding"><i></i><i></i><i></i></div>
