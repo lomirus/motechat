@@ -26,9 +26,13 @@
   let messages: Message[] = []
   let loading = false
   let error = ''
+  let copiedMessage: number | null = null
+  let editingMessage: number | null = null
+  let editPrompt = ''
   let saved = false
   let form: HTMLFormElement
   let textarea: HTMLTextAreaElement
+  let editTextarea: HTMLTextAreaElement
   let messageEnd: HTMLDivElement
   let scrollbar: HTMLDivElement
   let scrollable = false
@@ -82,9 +86,9 @@
     setTimeout(() => (saved = false), 1800)
   }
 
-  function resizeComposer() {
-    textarea.style.height = 'auto'
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 180)}px`
+  function resizeTextarea(element: HTMLTextAreaElement) {
+    element.style.height = 'auto'
+    element.style.height = `${Math.min(element.scrollHeight, 180)}px`
   }
 
   function updateScrollbar() {
@@ -137,24 +141,23 @@
     if (wasAtBottom) messageEnd?.scrollIntoView()
   }
 
-  async function sendMessage() {
-    const content = prompt.trim()
-    if (!content || loading) return
+  function requestReady() {
     if (!apiKey.trim() || !baseUrl.trim()) {
       error = 'Add an API Key and Base URL in Settings first.'
-      return
+      return false
     }
     if (!model.trim()) {
       error = 'Select a model before sending a message.'
-      return
+      return false
     }
+    return true
+  }
 
-    const nextMessages: Message[] = [...messages, { role: 'user', content }]
-    prompt = ''
+  async function requestResponse(nextMessages: Message[]) {
     error = ''
+    copiedMessage = null
     loading = true
     await showMessages(nextMessages)
-    resizeComposer()
 
     try {
       const response = await fetch(responsesUrl(baseUrl), {
@@ -203,10 +206,67 @@
     }
   }
 
+  async function sendMessage() {
+    const content = prompt.trim()
+    if (!content || loading || !requestReady()) return
+
+    const nextMessages: Message[] = [...messages, { role: 'user', content }]
+    prompt = ''
+    await tick()
+    resizeTextarea(textarea)
+    await requestResponse(nextMessages)
+  }
+
+  async function copyMessage(content: string, index: number) {
+    try {
+      await navigator.clipboard.writeText(content)
+      copiedMessage = index
+      setTimeout(() => {
+        if (copiedMessage === index) copiedMessage = null
+      }, 1500)
+    } catch {
+      error = 'Could not copy this message.'
+    }
+  }
+
+  async function regenerateMessage(index: number) {
+    if (loading || editingMessage !== null || messages[index]?.role !== 'assistant' || messages[index - 1]?.role !== 'user' || !requestReady()) return
+    await requestResponse(messages.slice(0, index))
+  }
+
+  async function editMessage(index: number) {
+    const message = messages[index]
+    if (loading || message?.role !== 'user') return
+    editingMessage = index
+    editPrompt = message.content
+    error = ''
+    copiedMessage = null
+    await tick()
+    editTextarea.focus()
+    resizeTextarea(editTextarea)
+  }
+
+  function cancelEdit() {
+    editingMessage = null
+    editPrompt = ''
+  }
+
+  async function saveEdit(index: number) {
+    const content = editPrompt.trim()
+    if (!content || loading || messages[index]?.role !== 'user' || !requestReady()) return
+    if (content === messages[index].content) {
+      cancelEdit()
+      return
+    }
+    cancelEdit()
+    await requestResponse([...messages.slice(0, index), { role: 'user', content }])
+  }
+
   function newChat() {
     messages = []
     prompt = ''
     error = ''
+    cancelEdit()
   }
 </script>
 
@@ -243,19 +303,53 @@
         </section>
       {:else}
         <section class="messages" aria-live="polite">
-          {#each messages as message}
+          {#each messages as message, index}
             <article class:assistant={message.role === 'assistant'} class:user={message.role === 'user'}>
               {#if message.role === 'assistant'}
                 <span class="avatar" aria-hidden="true"></span>
               {/if}
-              <div class="message-content">
-                {#if message.reasoning}
-                  <details class="reasoning" open={loading && message === messages[messages.length - 1]}>
-                    <summary>Reasoning</summary>
-                    <div>{message.reasoning}</div>
-                  </details>
+              <div class="message-block" class:editing={message.role === 'user' && editingMessage === index}>
+                {#if message.role === 'user' && editingMessage === index}
+                  <textarea
+                    class="message-editor"
+                    bind:this={editTextarea}
+                    bind:value={editPrompt}
+                    aria-label="Edit message"
+                    rows="1"
+                    oninput={(event) => resizeTextarea(event.currentTarget)}
+                  ></textarea>
+                  <div class="edit-actions">
+                    <button type="button" onclick={cancelEdit}>Cancel</button>
+                    <button class="save-edit" type="button" disabled={!editPrompt.trim() || loading} onclick={() => saveEdit(index)}>Save & submit</button>
+                  </div>
+                {:else}
+                  <div class="message-content">
+                    {#if message.reasoning}
+                      <details class="reasoning" open={loading && message === messages[messages.length - 1]}>
+                        <summary>Reasoning</summary>
+                        <div>{message.reasoning}</div>
+                      </details>
+                    {/if}
+                    {message.content}
+                  </div>
+                  <div class="message-actions">
+                    <button type="button" onclick={() => copyMessage(message.content, index)}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg>
+                      {copiedMessage === index ? 'Copied' : 'Copy'}
+                    </button>
+                    {#if message.role === 'assistant'}
+                      <button type="button" disabled={loading || editingMessage !== null} onclick={() => regenerateMessage(index)}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+                        Regenerate
+                      </button>
+                    {:else}
+                      <button type="button" disabled={loading || editingMessage !== null} onclick={() => editMessage(index)}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+                        Edit
+                      </button>
+                    {/if}
+                  </div>
                 {/if}
-                {message.content}
               </div>
             </article>
           {/each}
@@ -272,7 +366,7 @@
 
     <div class="composer-area">
       <form class="composer" bind:this={form} onsubmit={(event) => { event.preventDefault(); sendMessage() }}>
-        <textarea bind:this={textarea} bind:value={prompt} rows="1" aria-label="Message" placeholder="Message Saga" oninput={resizeComposer} onkeydown={handleKeydown}></textarea>
+        <textarea bind:this={textarea} bind:value={prompt} rows="1" aria-label="Message" placeholder="Message Saga" oninput={(event) => resizeTextarea(event.currentTarget)} onkeydown={handleKeydown}></textarea>
         <div class="composer-footer">
           {#if apiKey.trim() && baseUrl.trim()}
             <label class="model-picker">
