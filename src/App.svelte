@@ -26,6 +26,7 @@
   let availableModels: string[] = []
   let modelsLoading = false
   let modelsError = ''
+  let modelsOpen = false
   let systemPrompt = ''
   let showApiKey = false
   let showReasoning = false
@@ -166,6 +167,7 @@
 
   async function refreshModels() {
     if (!apiKey.trim() || !baseUrl.trim() || modelsLoading) return
+    modelsOpen = false
     modelsLoading = true
     modelsError = ''
 
@@ -454,10 +456,10 @@
             <p>Credentials stay in your browser and are sent only to your Base URL.</p>
           </div>
           <div class="fields">
-            <label>
-              <span>API Key</span>
+            <div class="field">
+              <label for="api-key"><span>API Key</span></label>
               <div class="input-with-action">
-                <input type={showApiKey ? 'text' : 'password'} bind:value={apiKey} placeholder="sk-••••••••••••••••" autocomplete="off" />
+                <input id="api-key" type={showApiKey ? 'text' : 'password'} bind:value={apiKey} placeholder="sk-••••••••••••••••" autocomplete="off" />
                 <button
                   type="button"
                   aria-label={showApiKey ? 'Hide API Key' : 'Show API Key'}
@@ -465,32 +467,90 @@
                   title={showApiKey ? 'Hide API Key' : 'Show API Key'}
                   onclick={() => (showApiKey = !showApiKey)}
                 >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                  {#if showApiKey}
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                  {:else}
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18"/><path d="M6.7 6.7C4.3 8.2 2 12 2 12s3.5 6 10 6c1.9 0 3.6-.5 5-1.3"/><path d="M10.7 6.1c.4-.1.8-.1 1.3-.1 6.5 0 10 6 10 6a18 18 0 0 1-2.1 2.8"/><path d="M14.1 14.1a3 3 0 0 1-4.2-4.2"/></svg>
+                  {/if}
                 </button>
               </div>
               <small>Stored locally on this device.</small>
-            </label>
+            </div>
             <label>
               <span>Base URL</span>
               <input type="url" bind:value={baseUrl} placeholder="https://api.openai.com/v1" spellcheck="false" />
               <small>Requests are sent to <code>/responses</code>.</small>
             </label>
-            <label>
-              <span>Model</span>
+            <div class="model-field">
+              <label for="model-input"><span>Model</span></label>
               <div class="model-input-row">
-                <input list="available-models" type="text" bind:value={model} placeholder="Model ID" autocomplete="off" spellcheck="false" />
+                <div
+                  class="model-select"
+                  onfocusout={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) modelsOpen = false
+                  }}
+                >
+                  <input
+                    id="model-input"
+                    type="text"
+                    bind:value={model}
+                    placeholder="Model ID"
+                    autocomplete="off"
+                    spellcheck="false"
+                    onkeydown={(event) => {
+                      if (event.key === 'Escape') modelsOpen = false
+                      if (event.key === 'ArrowDown' && availableModels.length) {
+                        event.preventDefault()
+                        modelsOpen = true
+                      }
+                    }}
+                  />
+                  <button
+                    class="model-select-toggle"
+                    type="button"
+                    disabled={!availableModels.length}
+                    aria-label={modelsOpen ? 'Hide model list' : 'Show model list'}
+                    aria-expanded={modelsOpen}
+                    aria-controls="model-options"
+                    onclick={() => (modelsOpen = !modelsOpen)}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+                  </button>
+                  {#if modelsOpen}
+                    <div
+                      id="model-options"
+                      class="model-options"
+                      role="listbox"
+                      tabindex="-1"
+                      aria-label="Available models"
+                      onkeydown={(event) => {
+                        if (event.key === 'Escape') modelsOpen = false
+                      }}
+                    >
+                      {#each availableModels as availableModel}
+                        <button
+                          class:selected={availableModel === model}
+                          type="button"
+                          role="option"
+                          aria-selected={availableModel === model}
+                          onclick={() => {
+                            model = availableModel
+                            modelsOpen = false
+                            saveSettings()
+                          }}
+                        >{availableModel}</button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
                 <button
+                  class="refresh-models"
                   type="button"
                   disabled={!apiKey.trim() || !baseUrl.trim() || modelsLoading}
                   aria-label="Refresh model list"
                   onclick={refreshModels}
                 >{modelsLoading ? 'Refreshing…' : 'Refresh'}</button>
               </div>
-              <datalist id="available-models">
-                {#each availableModels as availableModel}
-                  <option value={availableModel}></option>
-                {/each}
-              </datalist>
               {#if modelsError}
                 <small class="field-error" role="alert">{modelsError}</small>
               {:else if availableModels.length}
@@ -498,7 +558,7 @@
               {:else}
                 <small>Enter a model ID, or refresh the list after adding an API Key and Base URL.</small>
               {/if}
-            </label>
+            </div>
             <label class="reasoning-toggle">
               <input type="checkbox" bind:checked={showReasoning} />
               <span>Show reasoning summaries<small>Available for supported reasoning models.</small></span>
