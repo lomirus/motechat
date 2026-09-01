@@ -21,6 +21,7 @@
   let apiKey = ''
   let baseUrl = ''
   let model = ''
+  let systemPrompt = ''
   let showReasoning = false
   let prompt = ''
   let messages: Message[] = []
@@ -48,6 +49,7 @@
         apiKey = typeof stored.apiKey === 'string' ? stored.apiKey : ''
         baseUrl = typeof stored.baseUrl === 'string' ? stored.baseUrl : baseUrl
         model = typeof stored.model === 'string' ? stored.model : ''
+        systemPrompt = typeof stored.systemPrompt === 'string' ? stored.systemPrompt : ''
         showReasoning = stored.showReasoning === true
       }
     } catch {
@@ -81,7 +83,8 @@
   function saveSettings() {
     baseUrl = baseUrl.trim().replace(/\/+$/, '')
     model = model.trim()
-    localStorage.setItem(storageKey, JSON.stringify({ theme, apiKey: apiKey.trim(), baseUrl, model, showReasoning }))
+    systemPrompt = systemPrompt.trim()
+    localStorage.setItem(storageKey, JSON.stringify({ theme, apiKey: apiKey.trim(), baseUrl, model, systemPrompt, showReasoning }))
     saved = true
     setTimeout(() => (saved = false), 1800)
   }
@@ -170,6 +173,7 @@
           model: model.trim(),
           input: nextMessages.map(({ role, content }) => ({ role, content })),
           stream: true,
+          ...(systemPrompt.trim() ? { instructions: systemPrompt.trim() } : {}),
           ...(showReasoning ? { reasoning: { summary: 'auto' } } : {}),
         }),
       })
@@ -454,6 +458,20 @@
             <label class="reasoning-toggle">
               <input type="checkbox" bind:checked={showReasoning} />
               <span>Show reasoning summaries<small>Available for supported reasoning models.</small></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-card" aria-labelledby="system-prompt-title">
+          <div class="setting-copy">
+            <h2 id="system-prompt-title">System prompt</h2>
+            <p>Set instructions that apply to every response.</p>
+          </div>
+          <div class="fields">
+            <label>
+              <span>Instructions</span>
+              <textarea bind:value={systemPrompt} rows="6" placeholder="You are a helpful assistant."></textarea>
+              <small>Sent as the Responses API <code>instructions</code> parameter.</small>
             </label>
           </div>
         </section>
