@@ -485,6 +485,19 @@ h1, h2, p { margin: 0; }
 .fields textarea:focus { border-color: var(--muted); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 12%, transparent); }
 .fields input::placeholder,
 .fields textarea::placeholder { color: var(--faint); }
+.input-with-action { position: relative; }
+.input-with-action input { padding-right: 44px; }
+.input-with-action button {
+  position: absolute;
+  inset: 0 4px 0 auto;
+  width: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.input-with-action button:hover { color: var(--text); }
+.input-with-action svg { width: 17px; }
 .fields small { display: block; margin-top: 7px; color: var(--faint); font-size: 11px; }
 .fields code { padding: 2px 4px; border-radius: 4px; background: var(--surface-soft); color: var(--muted); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .fields .reasoning-toggle { display: flex; align-items: flex-start; gap: 10px; }

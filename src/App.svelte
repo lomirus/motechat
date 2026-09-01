@@ -22,6 +22,7 @@
   let baseUrl = ''
   let model = ''
   let systemPrompt = ''
+  let showApiKey = false
   let showReasoning = false
   let prompt = ''
   let messages: Message[] = []
@@ -442,7 +443,18 @@
           <div class="fields">
             <label>
               <span>API Key</span>
-              <input type="password" bind:value={apiKey} placeholder="sk-••••••••••••••••" autocomplete="off" />
+              <div class="input-with-action">
+                <input type={showApiKey ? 'text' : 'password'} bind:value={apiKey} placeholder="sk-••••••••••••••••" autocomplete="off" />
+                <button
+                  type="button"
+                  aria-label={showApiKey ? 'Hide API Key' : 'Show API Key'}
+                  aria-pressed={showApiKey}
+                  title={showApiKey ? 'Hide API Key' : 'Show API Key'}
+                  onclick={() => (showApiKey = !showApiKey)}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                </button>
+              </div>
               <small>Stored locally on this device.</small>
             </label>
             <label>
