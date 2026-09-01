@@ -31,7 +31,6 @@
   let copiedMessage: number | null = null
   let editingMessage: number | null = null
   let editPrompt = ''
-  let saved = false
   let form: HTMLFormElement
   let textarea: HTMLTextAreaElement
   let editTextarea: HTMLTextAreaElement
@@ -79,15 +78,18 @@
   function chooseTheme(value: Theme) {
     theme = value
     applyTheme(value)
+    saveSettings()
   }
 
   function saveSettings() {
-    baseUrl = baseUrl.trim().replace(/\/+$/, '')
-    model = model.trim()
-    systemPrompt = systemPrompt.trim()
-    localStorage.setItem(storageKey, JSON.stringify({ theme, apiKey: apiKey.trim(), baseUrl, model, systemPrompt, showReasoning }))
-    saved = true
-    setTimeout(() => (saved = false), 1800)
+    localStorage.setItem(storageKey, JSON.stringify({
+      theme,
+      apiKey: apiKey.trim(),
+      baseUrl: baseUrl.trim().replace(/\/+$/, ''),
+      model: model.trim(),
+      systemPrompt: systemPrompt.trim(),
+      showReasoning,
+    }))
   }
 
   function resizeTextarea(element: HTMLTextAreaElement) {
@@ -411,9 +413,10 @@
 
       <div class="settings-heading">
         <h1>Settings</h1>
+        <p>Changes save automatically.</p>
       </div>
 
-      <form class="settings-form" onsubmit={(event) => { event.preventDefault(); saveSettings() }}>
+      <form class="settings-form" oninput={saveSettings}>
         <section class="settings-card" aria-labelledby="appearance-title">
           <div class="setting-copy">
             <h2 id="appearance-title">Appearance</h2>
@@ -488,13 +491,6 @@
           </div>
         </section>
 
-        <div class="save-row">
-          <span class:visible={saved} role="status">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
-            Settings saved
-          </span>
-          <button class="primary-button" type="submit">Save changes</button>
-        </div>
       </form>
     </main>
   {/if}

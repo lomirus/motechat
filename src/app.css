@@ -420,6 +420,7 @@ h1, h2, p { margin: 0; }
 .back-button svg { width: 17px; }
 
 .settings-heading h1 { font-size: 39px; line-height: 1.1; letter-spacing: -.04em; font-weight: 640; }
+.settings-heading p { margin-top: 9px; color: var(--muted); font-size: 12.5px; }
 .settings-form { margin-top: 44px; }
 
 .settings-card {
@@ -503,26 +504,6 @@ h1, h2, p { margin: 0; }
 .fields .reasoning-toggle { display: flex; align-items: flex-start; gap: 10px; }
 .fields .reasoning-toggle input { width: 16px; height: 16px; margin: 1px 0 0; padding: 0; box-shadow: none; }
 .fields .reasoning-toggle > span { margin: 0; }
-
-.save-row { display: flex; align-items: center; justify-content: flex-end; gap: 17px; margin-top: 18px; }
-.save-row > span { display: inline-flex; align-items: center; gap: 6px; opacity: 0; color: var(--green); font-size: 12.5px; transition: opacity 160ms ease; }
-.save-row > span.visible { opacity: 1; }
-.save-row svg { width: 16px; stroke-width: 2.2; }
-
-.primary-button {
-  height: 42px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: 11px;
-  background: var(--accent);
-  color: var(--accent-text);
-  font-size: 13px;
-  font-weight: 620;
-  cursor: pointer;
-  transition: transform 150ms ease, opacity 150ms ease;
-}
-
-.primary-button:hover { transform: translateY(-1px); opacity: .9; }
 
 @keyframes enter { from { opacity: 0; transform: translateY(7px); } }
 @keyframes pulse { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
