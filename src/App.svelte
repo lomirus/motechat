@@ -1,6 +1,14 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import { extractResponseText, responsesUrl, responseTextDeltas } from './lib/responses'
+  import {
+    extractResponseText,
+    isRecord,
+    parseJson,
+    readResponseJson,
+    responseErrorMessage,
+    responsesUrl,
+    responseTextDeltas,
+  } from './lib/responses'
 
   type Theme = 'system' | 'light' | 'dark'
   type Message = { role: 'user' | 'assistant'; content: string }
@@ -28,11 +36,13 @@
 
   onMount(() => {
     try {
-      const stored = JSON.parse(localStorage.getItem(storageKey) || '{}')
-      theme = stored.theme || 'system'
-      apiKey = stored.apiKey || ''
-      baseUrl = stored.baseUrl || baseUrl
-      model = stored.model || ''
+      const stored = parseJson(localStorage.getItem(storageKey) || '{}')
+      if (isRecord(stored)) {
+        theme = stored.theme === 'light' || stored.theme === 'dark' ? stored.theme : 'system'
+        apiKey = typeof stored.apiKey === 'string' ? stored.apiKey : ''
+        baseUrl = typeof stored.baseUrl === 'string' ? stored.baseUrl : baseUrl
+        model = typeof stored.model === 'string' ? stored.model : ''
+      }
     } catch {
       // Ignore malformed local preferences and keep safe defaults.
     }
@@ -153,8 +163,8 @@
         body: JSON.stringify({ model: model.trim(), input: nextMessages, stream: true }),
       })
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        throw new Error(data?.error?.message || `Request failed (${response.status}).`)
+        const data = await readResponseJson(response).catch((): unknown => undefined)
+        throw new Error(responseErrorMessage(data) || `Request failed (${response.status}).`)
       }
 
       if (response.body && response.headers.get('content-type')?.includes('text/event-stream')) {
@@ -165,7 +175,7 @@
         }
         if (!reply) throw new Error('The service returned an empty response.')
       } else {
-        const data = await response.json().catch(() => ({}))
+        const data = await readResponseJson(response).catch((): unknown => undefined)
         await showMessages([...nextMessages, { role: 'assistant', content: extractResponseText(data) }])
       }
     } catch (cause) {

@@ -2,13 +2,40 @@ export function responsesUrl(baseUrl: string) {
   return `${baseUrl.trim().replace(/\/+$/, '')}/responses`
 }
 
-export function extractResponseText(response: any): string {
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isUnknownArray(value: unknown): value is unknown[] {
+  return Array.isArray(value)
+}
+
+export function parseJson(text: string): unknown {
+  return JSON.parse(text)
+}
+
+export function readResponseJson(response: Response): Promise<unknown> {
+  return response.json()
+}
+
+export function responseErrorMessage(response: unknown): string | undefined {
+  if (!isRecord(response)) return
+  const error = isRecord(response.error)
+    ? response.error
+    : isRecord(response.response) && isRecord(response.response.error)
+      ? response.response.error
+      : undefined
+  return typeof error?.message === 'string' ? error.message : undefined
+}
+
+export function extractResponseText(response: unknown): string {
+  if (!isRecord(response)) throw new Error('The service returned an empty response.')
   if (typeof response.output_text === 'string' && response.output_text) return response.output_text
 
-  const text = response.output
-    ?.flatMap((item: any) => item.content || [])
-    .filter((item: any) => item.type === 'output_text' && typeof item.text === 'string')
-    .map((item: any) => item.text)
+  const text = (isUnknownArray(response.output) ? response.output : [])
+    .flatMap((item) => isRecord(item) && isUnknownArray(item.content) ? item.content : [])
+    .map((item) => isRecord(item) && item.type === 'output_text' && typeof item.text === 'string' ? item.text : '')
+    .filter(Boolean)
     .join('\n')
 
   if (!text) throw new Error('The service returned an empty response.')
@@ -35,12 +62,13 @@ export async function* responseTextDeltas(body: ReadableStream<Uint8Array>) {
         .join('\n')
       if (!data || data === '[DONE]') continue
 
-      const payload = JSON.parse(data)
+      const payload = parseJson(data)
+      if (!isRecord(payload)) continue
       if (payload.type === 'response.output_text.delta' && typeof payload.delta === 'string') {
         yield payload.delta
       }
       if (payload.type === 'error' || payload.type === 'response.failed') {
-        throw new Error(payload.error?.message || payload.response?.error?.message || 'Response failed.')
+        throw new Error(responseErrorMessage(payload) || 'Response failed.')
       }
     }
 

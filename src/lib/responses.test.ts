@@ -10,12 +10,12 @@ const chunks = [
   'event: response.output_text.delta\r\ndata: {"type":"response.output_text.delta","delta":"Hel"}\r\n\r',
   '\nevent: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"lo"}\n\n',
 ]
-const body = new ReadableStream({
+const body = new ReadableStream<Uint8Array>({
   start(controller) {
     chunks.forEach((chunk) => controller.enqueue(encoder.encode(chunk)))
     controller.close()
   },
 })
-const deltas = []
+const deltas: string[] = []
 for await (const delta of responseTextDeltas(body)) deltas.push(delta)
 assert.equal(deltas.join(''), 'Hello')
