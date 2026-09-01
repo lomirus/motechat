@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import {
+    extractModelIds,
     extractResponseReasoning,
     extractResponseText,
     isRecord,
+    modelsUrl,
     parseJson,
     readResponseJson,
     responseErrorMessage,
@@ -21,6 +23,9 @@
   let apiKey = ''
   let baseUrl = ''
   let model = ''
+  let availableModels: string[] = []
+  let modelsLoading = false
+  let modelsError = ''
   let systemPrompt = ''
   let showApiKey = false
   let showReasoning = false
@@ -157,6 +162,27 @@
       return false
     }
     return true
+  }
+
+  async function refreshModels() {
+    if (!apiKey.trim() || !baseUrl.trim() || modelsLoading) return
+    modelsLoading = true
+    modelsError = ''
+
+    try {
+      const response = await fetch(modelsUrl(baseUrl), {
+        headers: { Authorization: `Bearer ${apiKey.trim()}` },
+      })
+      const data = await readResponseJson(response).catch((): unknown => undefined)
+      if (!response.ok) throw new Error(responseErrorMessage(data) || `Request failed (${response.status}).`)
+      availableModels = extractModelIds(data)
+      if (!availableModels.length) throw new Error('The service returned no models.')
+    } catch (cause) {
+      availableModels = []
+      modelsError = cause instanceof Error ? cause.message : 'Could not load models.'
+    } finally {
+      modelsLoading = false
+    }
   }
 
   async function requestResponse(nextMessages: Message[]) {
@@ -375,26 +401,10 @@
       <form class="composer" bind:this={form} onsubmit={(event) => { event.preventDefault(); sendMessage() }}>
         <textarea bind:this={textarea} bind:value={prompt} rows="1" aria-label="Message" placeholder="Message Saga" oninput={(event) => resizeTextarea(event.currentTarget)} onkeydown={handleKeydown}></textarea>
         <div class="composer-footer">
-          {#if apiKey.trim() && baseUrl.trim()}
-            <label class="model-picker">
-              <span>Model</span>
-              <input
-                type="text"
-                bind:value={model}
-                placeholder="Select model"
-                aria-label="Model"
-                autocomplete="off"
-                spellcheck="false"
-                onblur={saveSettings}
-                onkeydown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault()
-                    event.currentTarget.blur()
-                  }
-                }}
-              />
-            </label>
-          {/if}
+          <div class="model-picker" aria-label="Current model">
+            <span>Model</span>
+            <strong title={model.trim() || 'Not selected'}>{model.trim() || 'Not selected'}</strong>
+          </div>
           <button class="send-button" type="submit" disabled={!prompt.trim() || loading} aria-label="Send message">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19V5"/><path d="m6 11 6-6 6 6"/></svg>
           </button>
@@ -467,8 +477,27 @@
             </label>
             <label>
               <span>Model</span>
-              <input type="text" bind:value={model} placeholder="Model ID" autocomplete="off" spellcheck="false" />
-              <small>Sent as the Responses API <code>model</code> parameter.</small>
+              <div class="model-input-row">
+                <input list="available-models" type="text" bind:value={model} placeholder="Model ID" autocomplete="off" spellcheck="false" />
+                <button
+                  type="button"
+                  disabled={!apiKey.trim() || !baseUrl.trim() || modelsLoading}
+                  aria-label="Refresh model list"
+                  onclick={refreshModels}
+                >{modelsLoading ? 'Refreshing…' : 'Refresh'}</button>
+              </div>
+              <datalist id="available-models">
+                {#each availableModels as availableModel}
+                  <option value={availableModel}></option>
+                {/each}
+              </datalist>
+              {#if modelsError}
+                <small class="field-error" role="alert">{modelsError}</small>
+              {:else if availableModels.length}
+                <small>{availableModels.length} models available. Choose one or enter a model ID.</small>
+              {:else}
+                <small>Enter a model ID, or refresh the list after adding an API Key and Base URL.</small>
+              {/if}
             </label>
             <label class="reasoning-toggle">
               <input type="checkbox" bind:checked={showReasoning} />

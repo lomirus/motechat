@@ -1,5 +1,13 @@
+function apiUrl(baseUrl: string, path: string) {
+  return `${baseUrl.trim().replace(/\/+$/, '')}/${path}`
+}
+
 export function responsesUrl(baseUrl: string) {
-  return `${baseUrl.trim().replace(/\/+$/, '')}/responses`
+  return apiUrl(baseUrl, 'responses')
+}
+
+export function modelsUrl(baseUrl: string) {
+  return apiUrl(baseUrl, 'models')
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -26,6 +34,13 @@ export function responseErrorMessage(response: unknown): string | undefined {
       ? response.response.error
       : undefined
   return typeof error?.message === 'string' ? error.message : undefined
+}
+
+export function extractModelIds(response: unknown): string[] {
+  if (!isRecord(response) || !Array.isArray(response.data)) return []
+  return [...new Set(response.data
+    .map((item) => isRecord(item) && typeof item.id === 'string' ? item.id : '')
+    .filter(Boolean))].sort()
 }
 
 export function extractResponseText(response: unknown): string {
