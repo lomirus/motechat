@@ -550,11 +550,16 @@
                 </div>
                 <button
                   class="refresh-models"
+                  class:loading={modelsLoading}
                   type="button"
                   disabled={!apiKey.trim() || !baseUrl.trim() || modelsLoading}
-                  aria-label="Refresh model list"
+                  aria-label={modelsLoading ? 'Refreshing model list' : 'Refresh model list'}
+                  aria-busy={modelsLoading}
+                  title="Refresh model list"
                   onclick={refreshModels}
-                >{modelsLoading ? 'Refreshing…' : 'Refresh'}</button>
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-4"/><path d="M4 4v6h6"/><path d="M4 13a8 8 0 0 0 14.9 4"/><path d="M20 20v-6h-6"/></svg>
+                </button>
               </div>
               {#if modelsError}
                 <small class="field-error" role="alert">{modelsError}</small>

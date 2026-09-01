@@ -546,14 +546,19 @@ h1, h2, p { margin: 0; }
 .fields .model-options button.selected { background: var(--surface-soft); outline: 0; }
 .fields .refresh-models {
   flex: 0 0 auto;
+  width: 44px;
   height: 44px;
-  padding: 0 13px;
+  display: grid;
+  place-items: center;
+  padding: 0;
   border: 1px solid var(--border-strong);
   border-radius: 11px;
   background: var(--surface-soft);
   color: var(--text);
   cursor: pointer;
 }
+.fields .refresh-models svg { width: 18px; }
+.fields .refresh-models.loading svg { animation: spin 800ms linear infinite; }
 .fields .refresh-models:hover:not(:disabled) { background: var(--surface-hover); }
 .fields .refresh-models:disabled { opacity: .45; cursor: default; }
 .fields small { display: block; margin-top: 7px; color: var(--faint); font-size: 11px; }
@@ -565,6 +570,7 @@ h1, h2, p { margin: 0; }
 
 @keyframes enter { from { opacity: 0; transform: translateY(7px); } }
 @keyframes pulse { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 680px) {
   .topbar { height: 60px; padding: 0 16px; }
