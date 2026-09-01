@@ -55,6 +55,9 @@
         apiKey = typeof stored.apiKey === 'string' ? stored.apiKey : ''
         baseUrl = typeof stored.baseUrl === 'string' ? stored.baseUrl : baseUrl
         model = typeof stored.model === 'string' ? stored.model : ''
+        availableModels = Array.isArray(stored.availableModels)
+          ? stored.availableModels.filter((value): value is string => typeof value === 'string')
+          : []
         systemPrompt = typeof stored.systemPrompt === 'string' ? stored.systemPrompt : ''
         showReasoning = stored.showReasoning === true
       }
@@ -93,6 +96,7 @@
       apiKey: apiKey.trim(),
       baseUrl: baseUrl.trim().replace(/\/+$/, ''),
       model: model.trim(),
+      availableModels,
       systemPrompt: systemPrompt.trim(),
       showReasoning,
     }))
@@ -179,6 +183,7 @@
       if (!response.ok) throw new Error(responseErrorMessage(data) || `Request failed (${response.status}).`)
       availableModels = extractModelIds(data)
       if (!availableModels.length) throw new Error('The service returned no models.')
+      saveSettings()
     } catch (cause) {
       availableModels = []
       modelsError = cause instanceof Error ? cause.message : 'Could not load models.'
