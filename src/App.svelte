@@ -20,6 +20,11 @@
   let form: HTMLFormElement
   let textarea: HTMLTextAreaElement
   let messageEnd: HTMLDivElement
+  let scrollbar: HTMLDivElement
+  let scrollable = false
+  let scrollThumbHeight = 0
+  let scrollThumbTop = 0
+  let dragOffset: number | null = null
 
   onMount(() => {
     try {
@@ -32,6 +37,18 @@
       // Ignore malformed local preferences and keep safe defaults.
     }
     applyTheme(theme)
+
+    const resizeObserver = new ResizeObserver(updateScrollbar)
+    resizeObserver.observe(document.body)
+    window.addEventListener('scroll', updateScrollbar, { passive: true })
+    window.addEventListener('resize', updateScrollbar)
+    updateScrollbar()
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('scroll', updateScrollbar)
+      window.removeEventListener('resize', updateScrollbar)
+    }
   })
 
   function applyTheme(value: Theme) {
@@ -55,6 +72,42 @@
   function resizeComposer() {
     textarea.style.height = 'auto'
     textarea.style.height = `${Math.min(textarea.scrollHeight, 180)}px`
+  }
+
+  function updateScrollbar() {
+    if (!scrollbar) return
+    const root = document.documentElement
+    const trackHeight = scrollbar.clientHeight
+    scrollable = root.scrollHeight > root.clientHeight
+    scrollThumbHeight = scrollable ? Math.max(36, trackHeight * root.clientHeight / root.scrollHeight) : trackHeight
+    scrollThumbTop = scrollable
+      ? (trackHeight - scrollThumbHeight) * root.scrollTop / (root.scrollHeight - root.clientHeight)
+      : 0
+  }
+
+  function scrollFromPointer(clientY: number) {
+    if (dragOffset === null) return
+    const root = document.documentElement
+    const track = scrollbar.getBoundingClientRect()
+    const travel = track.height - scrollThumbHeight
+    const top = Math.max(0, Math.min(travel, clientY - track.top - dragOffset))
+    window.scrollTo({ top: top / travel * (root.scrollHeight - root.clientHeight) })
+  }
+
+  function startScrollbarDrag(event: PointerEvent) {
+    if (!scrollable) return
+    const trackTop = scrollbar.getBoundingClientRect().top
+    const pointerOnThumb = event.clientY >= trackTop + scrollThumbTop
+      && event.clientY <= trackTop + scrollThumbTop + scrollThumbHeight
+    dragOffset = pointerOnThumb ? event.clientY - trackTop - scrollThumbTop : scrollThumbHeight / 2
+    scrollbar.setPointerCapture(event.pointerId)
+    scrollFromPointer(event.clientY)
+    event.preventDefault()
+  }
+
+  function stopScrollbarDrag(event: PointerEvent) {
+    dragOffset = null
+    if (scrollbar.hasPointerCapture(event.pointerId)) scrollbar.releasePointerCapture(event.pointerId)
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -281,4 +334,22 @@
       </form>
     </main>
   {/if}
+</div>
+
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+  class="page-scrollbar"
+  class:visible={scrollable}
+  bind:this={scrollbar}
+  aria-hidden="true"
+  onpointerdown={startScrollbarDrag}
+  onpointermove={(event) => scrollFromPointer(event.clientY)}
+  onpointerup={stopScrollbarDrag}
+  onpointercancel={stopScrollbarDrag}
+>
+  <div
+    class="page-scrollbar-thumb"
+    style:height={`${scrollThumbHeight}px`}
+    style:transform={`translateY(${scrollThumbTop}px)`}
+  ></div>
 </div>

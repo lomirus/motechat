@@ -62,6 +62,8 @@
 
 * { box-sizing: border-box; }
 html, body, #app { min-height: 100%; }
+html { scrollbar-width: none; }
+html::-webkit-scrollbar { display: none; }
 
 body {
   margin: 0;
@@ -78,6 +80,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .app-shell { min-height: 100svh; }
+
+.page-scrollbar {
+  position: fixed;
+  z-index: 30;
+  inset: 4px 3px 4px auto;
+  width: 7px;
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  transition: opacity 150ms ease;
+}
+
+.page-scrollbar.visible { opacity: 1; pointer-events: auto; }
+.page-scrollbar-thumb { width: 100%; border-radius: 999px; background: color-mix(in srgb, var(--text) 34%, transparent); }
+.page-scrollbar:hover .page-scrollbar-thumb { background: color-mix(in srgb, var(--text) 48%, transparent); }
 
 .topbar {
   position: fixed;
