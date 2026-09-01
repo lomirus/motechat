@@ -210,6 +210,15 @@ h1, h2, p { margin: 0; }
 
 .assistant .message-content { padding-top: 3px; }
 
+.reasoning {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.reasoning summary { width: fit-content; cursor: pointer; font-weight: 620; }
+.reasoning div { margin-top: 8px; padding-left: 12px; border-left: 2px solid var(--border); }
+
 .avatar {
   flex: 0 0 auto;
   width: 28px;
@@ -419,6 +428,9 @@ h1, h2, p { margin: 0; }
 .fields input::placeholder { color: var(--faint); }
 .fields small { display: block; margin-top: 7px; color: var(--faint); font-size: 11px; }
 .fields code { padding: 2px 4px; border-radius: 4px; background: var(--surface-soft); color: var(--muted); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.fields .reasoning-toggle { display: flex; align-items: flex-start; gap: 10px; }
+.fields .reasoning-toggle input { width: 16px; height: 16px; margin: 1px 0 0; padding: 0; box-shadow: none; }
+.fields .reasoning-toggle > span { margin: 0; }
 
 .save-row { display: flex; align-items: center; justify-content: flex-end; gap: 17px; margin-top: 18px; }
 .save-row > span { display: inline-flex; align-items: center; gap: 6px; opacity: 0; color: var(--green); font-size: 12.5px; transition: opacity 160ms ease; }

@@ -42,7 +42,25 @@ export function extractResponseText(response: unknown): string {
   return text
 }
 
-export async function* responseTextDeltas(body: ReadableStream<Uint8Array>) {
+export function extractResponseReasoning(response: unknown): string {
+  if (!isRecord(response)) return ''
+
+  return (isUnknownArray(response.output) ? response.output : [])
+    .flatMap((item) => {
+      if (!isRecord(item) || item.type !== 'reasoning') return []
+      return [
+        ...(isUnknownArray(item.summary) ? item.summary : []),
+        ...(isUnknownArray(item.content) ? item.content : []),
+      ]
+    })
+    .map((part) => isRecord(part)
+      && (part.type === 'summary_text' || part.type === 'reasoning_text')
+      && typeof part.text === 'string' ? part.text : '')
+    .filter(Boolean)
+    .join('\n')
+}
+
+export async function* responseDeltas(body: ReadableStream<Uint8Array>) {
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
@@ -65,7 +83,12 @@ export async function* responseTextDeltas(body: ReadableStream<Uint8Array>) {
       const payload = parseJson(data)
       if (!isRecord(payload)) continue
       if (payload.type === 'response.output_text.delta' && typeof payload.delta === 'string') {
-        yield payload.delta
+        yield { type: 'output_text' as const, delta: payload.delta }
+      }
+      if ((payload.type === 'response.reasoning_summary_text.delta'
+        || payload.type === 'response.reasoning_text.delta')
+        && typeof payload.delta === 'string') {
+        yield { type: 'reasoning' as const, delta: payload.delta }
       }
       if (payload.type === 'error' || payload.type === 'response.failed') {
         throw new Error(responseErrorMessage(payload) || 'Response failed.')
@@ -73,5 +96,11 @@ export async function* responseTextDeltas(body: ReadableStream<Uint8Array>) {
     }
 
     if (done) break
+  }
+}
+
+export async function* responseTextDeltas(body: ReadableStream<Uint8Array>) {
+  for await (const event of responseDeltas(body)) {
+    if (event.type === 'output_text') yield event.delta
   }
 }

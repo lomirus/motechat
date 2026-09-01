@@ -1,17 +1,18 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import {
+    extractResponseReasoning,
     extractResponseText,
     isRecord,
     parseJson,
     readResponseJson,
     responseErrorMessage,
     responsesUrl,
-    responseTextDeltas,
+    responseDeltas,
   } from './lib/responses'
 
   type Theme = 'system' | 'light' | 'dark'
-  type Message = { role: 'user' | 'assistant'; content: string }
+  type Message = { role: 'user' | 'assistant'; content: string; reasoning?: string }
 
   const storageKey = 'saga-settings'
 
@@ -20,6 +21,7 @@
   let apiKey = ''
   let baseUrl = ''
   let model = ''
+  let showReasoning = false
   let prompt = ''
   let messages: Message[] = []
   let loading = false
@@ -42,6 +44,7 @@
         apiKey = typeof stored.apiKey === 'string' ? stored.apiKey : ''
         baseUrl = typeof stored.baseUrl === 'string' ? stored.baseUrl : baseUrl
         model = typeof stored.model === 'string' ? stored.model : ''
+        showReasoning = stored.showReasoning === true
       }
     } catch {
       // Ignore malformed local preferences and keep safe defaults.
@@ -74,7 +77,7 @@
   function saveSettings() {
     baseUrl = baseUrl.trim().replace(/\/+$/, '')
     model = model.trim()
-    localStorage.setItem(storageKey, JSON.stringify({ theme, apiKey: apiKey.trim(), baseUrl, model }))
+    localStorage.setItem(storageKey, JSON.stringify({ theme, apiKey: apiKey.trim(), baseUrl, model, showReasoning }))
     saved = true
     setTimeout(() => (saved = false), 1800)
   }
@@ -160,7 +163,12 @@
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey.trim()}`,
         },
-        body: JSON.stringify({ model: model.trim(), input: nextMessages, stream: true }),
+        body: JSON.stringify({
+          model: model.trim(),
+          input: nextMessages.map(({ role, content }) => ({ role, content })),
+          stream: true,
+          ...(showReasoning ? { reasoning: { summary: 'auto' } } : {}),
+        }),
       })
       if (!response.ok) {
         const data = await readResponseJson(response).catch((): unknown => undefined)
@@ -169,14 +177,24 @@
 
       if (response.body && response.headers.get('content-type')?.includes('text/event-stream')) {
         let reply = ''
-        for await (const delta of responseTextDeltas(response.body)) {
-          reply += delta
-          await showMessages([...nextMessages, { role: 'assistant', content: reply }])
+        let reasoning = ''
+        for await (const event of responseDeltas(response.body)) {
+          if (event.type === 'reasoning') {
+            if (!showReasoning) continue
+            reasoning += event.delta
+          } else {
+            reply += event.delta
+          }
+          await showMessages([...nextMessages, { role: 'assistant', content: reply, reasoning }])
         }
         if (!reply) throw new Error('The service returned an empty response.')
       } else {
         const data = await readResponseJson(response).catch((): unknown => undefined)
-        await showMessages([...nextMessages, { role: 'assistant', content: extractResponseText(data) }])
+        await showMessages([...nextMessages, {
+          role: 'assistant',
+          content: extractResponseText(data),
+          reasoning: showReasoning ? extractResponseReasoning(data) : '',
+        }])
       }
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Request failed. Please try again.'
@@ -230,7 +248,15 @@
               {#if message.role === 'assistant'}
                 <span class="avatar" aria-hidden="true"></span>
               {/if}
-              <div class="message-content">{message.content}</div>
+              <div class="message-content">
+                {#if message.reasoning}
+                  <details class="reasoning" open={loading && message === messages[messages.length - 1]}>
+                    <summary>Reasoning</summary>
+                    <div>{message.reasoning}</div>
+                  </details>
+                {/if}
+                {message.content}
+              </div>
             </article>
           {/each}
           {#if loading && messages[messages.length - 1]?.role !== 'assistant'}
@@ -330,6 +356,10 @@
               <span>Model</span>
               <input type="text" bind:value={model} placeholder="Model ID" autocomplete="off" spellcheck="false" />
               <small>Sent as the Responses API <code>model</code> parameter.</small>
+            </label>
+            <label class="reasoning-toggle">
+              <input type="checkbox" bind:checked={showReasoning} />
+              <span>Show reasoning summaries<small>Available for supported reasoning models.</small></span>
             </label>
           </div>
         </section>
