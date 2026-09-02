@@ -92,6 +92,28 @@ export function outputSpeed(tokens: number, elapsedMs: number): number | undefin
   return tokens / (elapsedMs / 1000)
 }
 
+const maxImageBytes = 10 * 1024 * 1024
+
+export function imageFileError(file: { type: string; size: number }): string | undefined {
+  if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+    return 'Choose a photo, screenshot, or other image file.'
+  }
+  if (file.size > maxImageBytes) return 'Images must be 10 MB or smaller.'
+}
+
+export function toResponseInput(messages: { role: string; content: string; images?: string[] }[]) {
+  return messages.map(({ role, content, images }) => {
+    if (!images?.length) return { role, content }
+    return {
+      role,
+      content: [
+        ...(content ? [{ type: 'input_text' as const, text: content }] : []),
+        ...images.map((image_url) => ({ type: 'input_image' as const, image_url })),
+      ],
+    }
+  })
+}
+
 export async function* responseDeltas(body: ReadableStream<Uint8Array>) {
   const reader = body.getReader()
   const decoder = new TextDecoder()

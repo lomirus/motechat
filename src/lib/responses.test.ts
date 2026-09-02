@@ -5,10 +5,12 @@ import {
   extractResponseReasoning,
   extractResponseText,
   modelsUrl,
+  imageFileError,
   outputSpeed,
   responseDeltas,
   responsesUrl,
   responseTextDeltas,
+  toResponseInput,
 } from './responses.ts'
 
 assert.equal(responsesUrl('https://api.example.com/v1/'), 'https://api.example.com/v1/responses')
@@ -55,6 +57,26 @@ assert.equal(extractOutputTokens({ response: { usage: { output_tokens: 7 } } }),
 assert.equal(extractOutputTokens({ usage: { output_tokens: 0 } }), undefined)
 assert.equal(outputSpeed(50, 2000), 25)
 assert.equal(outputSpeed(0, 1000), undefined)
+assert.equal(imageFileError({ type: 'image/png', size: 12 }), undefined)
+assert.equal(imageFileError({ type: 'image/svg+xml', size: 12 }), 'Choose a photo, screenshot, or other image file.')
+assert.equal(imageFileError({ type: 'text/plain', size: 12 }), 'Choose a photo, screenshot, or other image file.')
+assert.equal(imageFileError({ type: 'image/jpeg', size: 10 * 1024 * 1024 + 1 }), 'Images must be 10 MB or smaller.')
+assert.deepEqual(toResponseInput([
+  { role: 'user', content: 'Hi' },
+  { role: 'user', content: 'Look', images: ['data:image/png;base64,abc'] },
+  { role: 'user', content: '', images: ['data:image/jpeg;base64,xyz'] },
+  { role: 'assistant', content: 'Nice' },
+]), [
+  { role: 'user', content: 'Hi' },
+  { role: 'user', content: [
+    { type: 'input_text', text: 'Look' },
+    { type: 'input_image', image_url: 'data:image/png;base64,abc' },
+  ] },
+  { role: 'user', content: [
+    { type: 'input_image', image_url: 'data:image/jpeg;base64,xyz' },
+  ] },
+  { role: 'assistant', content: 'Nice' },
+])
 
 const usageBody = new ReadableStream<Uint8Array>({
   start(controller) {

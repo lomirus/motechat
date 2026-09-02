@@ -12,12 +12,15 @@
     responseErrorMessage,
     responsesUrl,
     responseDeltas,
+    toResponseInput,
+    imageFileError,
   } from './lib/responses'
 
   type Theme = 'system' | 'light' | 'dark'
-  type Message = { role: 'user' | 'assistant'; content: string; reasoning?: string; tokensPerSecond?: number; timeToFirstToken?: number }
+  type Message = { role: 'user' | 'assistant'; content: string; images?: string[]; reasoning?: string; tokensPerSecond?: number; timeToFirstToken?: number }
 
   const storageKey = 'saga-settings'
+  const maxPendingImages = 8
 
   let page: 'chat' | 'settings' = 'chat'
   let theme: Theme = 'system'
@@ -32,6 +35,11 @@
   let showApiKey = false
   let showReasoning = false
   let prompt = ''
+  let pendingImages: string[] = []
+  let editImages: string[] = []
+  let imageTarget: 'pending' | 'edit' = 'pending'
+  let attaching = false
+  let dragging = false
   let messages: Message[] = []
   let loading = false
   let error = ''
@@ -39,6 +47,7 @@
   let editingMessage: number | null = null
   let editPrompt = ''
   let form: HTMLFormElement
+  let fileInput: HTMLInputElement
   let textarea: HTMLTextAreaElement
   let editTextarea: HTMLTextAreaElement
   let messageEnd: HTMLDivElement
@@ -106,6 +115,59 @@
   function resizeTextarea(element: HTMLTextAreaElement) {
     element.style.height = 'auto'
     element.style.height = `${Math.min(element.scrollHeight, 180)}px`
+  }
+
+  function readImage(file: File) {
+    const problem = imageFileError(file)
+    if (problem) return Promise.reject(new Error(problem))
+    // ponytail: data URLs keep preview and payload as one string; 8×10MB ceiling. Upgrade: POST /files and send file_id.
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => typeof reader.result === 'string'
+        ? resolve(reader.result)
+        : reject(new Error('Could not read this image.'))
+      reader.onerror = () => reject(new Error('Could not read this image.'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async function addImages(files: File[], into: 'pending' | 'edit' = 'pending') {
+    if (!files.length) return
+    attaching = true
+    try {
+      let next = [...(into === 'edit' ? editImages : pendingImages)]
+      for (const file of files) {
+        if (next.length >= maxPendingImages) {
+          error = `You can attach up to ${maxPendingImages} images.`
+          break
+        }
+        next = [...next, await readImage(file)]
+        if (into === 'edit') editImages = next
+        else pendingImages = next
+        error = ''
+      }
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : 'Could not add this image.'
+    } finally {
+      attaching = false
+    }
+  }
+
+  function removeImage(index: number, into: 'pending' | 'edit' = 'pending') {
+    if (into === 'edit') editImages = editImages.filter((_, imageIndex) => imageIndex !== index)
+    else pendingImages = pendingImages.filter((_, imageIndex) => imageIndex !== index)
+  }
+
+  function handlePaste(event: ClipboardEvent, into: 'pending' | 'edit' = 'pending') {
+    const files = [...(event.clipboardData?.files ?? [])]
+    if (!files.length) return
+    if (!event.clipboardData?.getData('text/plain')) event.preventDefault()
+    addImages(files, into)
+  }
+
+  function pickImages(into: 'pending' | 'edit') {
+    imageTarget = into
+    fileInput.click()
   }
 
   function updateScrollbar() {
@@ -218,7 +280,7 @@
         },
         body: JSON.stringify({
           model: model.trim(),
-          input: nextMessages.map(({ role, content }) => ({ role, content })),
+          input: toResponseInput(nextMessages),
           stream: true,
           ...(systemPrompt.trim() ? { instructions: systemPrompt.trim() } : {}),
           ...(showReasoning ? { reasoning: { summary: 'auto' } } : {}),
@@ -275,10 +337,15 @@
 
   async function sendMessage() {
     const content = prompt.trim()
-    if (!content || loading || !requestReady()) return
+    if ((!content && !pendingImages.length) || loading || attaching || !requestReady()) return
 
-    const nextMessages: Message[] = [...messages, { role: 'user', content }]
+    const nextMessages: Message[] = [...messages, {
+      role: 'user',
+      content,
+      ...(pendingImages.length ? { images: pendingImages } : {}),
+    }]
     prompt = ''
+    pendingImages = []
     await tick()
     resizeTextarea(textarea)
     await requestResponse(nextMessages)
@@ -306,6 +373,7 @@
     if (loading || message?.role !== 'user') return
     editingMessage = index
     editPrompt = message.content
+    editImages = [...(message.images ?? [])]
     error = ''
     copiedMessage = null
     await tick()
@@ -316,22 +384,26 @@
   function cancelEdit() {
     editingMessage = null
     editPrompt = ''
+    editImages = []
   }
 
   async function saveEdit(index: number) {
     const content = editPrompt.trim()
-    if (!content || loading || messages[index]?.role !== 'user' || !requestReady()) return
-    if (content === messages[index].content) {
+    const images = [...editImages]
+    const previous = messages[index]?.images ?? []
+    if ((!content && !images.length) || loading || attaching || messages[index]?.role !== 'user' || !requestReady()) return
+    if (content === messages[index].content && images.length === previous.length && images.every((src, imageIndex) => src === previous[imageIndex])) {
       cancelEdit()
       return
     }
     cancelEdit()
-    await requestResponse([...messages.slice(0, index), { role: 'user', content }])
+    await requestResponse([...messages.slice(0, index), { role: 'user', content, ...(images.length ? { images } : {}) }])
   }
 
   function newChat() {
     messages = []
     prompt = ''
+    pendingImages = []
     error = ''
     cancelEdit()
   }
@@ -362,7 +434,7 @@
   </header>
 
   {#if page === 'chat'}
-    <main class="chat" class:has-messages={messages.length > 0}>
+    <main class="chat" class:has-messages={messages.length > 0} class:has-attachments={pendingImages.length > 0}>
       {#if messages.length === 0}
         <section class="welcome" aria-labelledby="welcome-title">
           <h1 id="welcome-title">How can I help?</h1>
@@ -377,6 +449,18 @@
               {/if}
               <div class="message-block" class:editing={message.role === 'user' && editingMessage === index}>
                 {#if message.role === 'user' && editingMessage === index}
+                  {#if editImages.length}
+                    <div class="composer-attachments">
+                      {#each editImages as src, imageIndex}
+                        <div class="composer-attachment">
+                          <img src={src} alt="Attachment" />
+                          <button type="button" aria-label="Remove image" onclick={() => removeImage(imageIndex, 'edit')}>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                          </button>
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
                   <textarea
                     class="message-editor"
                     bind:this={editTextarea}
@@ -384,10 +468,21 @@
                     aria-label="Edit message"
                     rows="1"
                     oninput={(event) => resizeTextarea(event.currentTarget)}
+                    onpaste={(event) => handlePaste(event, 'edit')}
                   ></textarea>
                   <div class="edit-actions">
+                    <button
+                      class="edit-attach"
+                      type="button"
+                      disabled={loading || attaching || editImages.length >= maxPendingImages}
+                      aria-label="Add image"
+                      title="Add image"
+                      onclick={() => pickImages('edit')}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+                    </button>
                     <button type="button" onclick={cancelEdit}>Cancel</button>
-                    <button class="save-edit" type="button" disabled={!editPrompt.trim() || loading} onclick={() => saveEdit(index)}>Save & submit</button>
+                    <button class="save-edit" type="button" disabled={(!editPrompt.trim() && !editImages.length) || loading || attaching} onclick={() => saveEdit(index)}>Save & submit</button>
                   </div>
                 {:else}
                   <div class="message-content">
@@ -398,6 +493,13 @@
                         </summary>
                         <div>{message.reasoning}</div>
                       </details>
+                    {/if}
+                    {#if message.images?.length}
+                      <div class="message-images">
+                        {#each message.images as src}
+                          <img src={src} alt="Attachment" />
+                        {/each}
+                      </div>
                     {/if}
                     {#if message.content}<div class="message-text">{message.content}</div>{/if}
                   </div>
@@ -440,14 +542,55 @@
     </main>
 
     <div class="composer-area">
-      <form class="composer" bind:this={form} onsubmit={(event) => { event.preventDefault(); sendMessage() }}>
-        <textarea bind:this={textarea} bind:value={prompt} rows="1" aria-label="Message" placeholder="Message Saga" oninput={(event) => resizeTextarea(event.currentTarget)} onkeydown={handleKeydown}></textarea>
+      <form
+        class="composer"
+        class:dragging
+        bind:this={form}
+        onsubmit={(event) => { event.preventDefault(); sendMessage() }}
+        ondragover={(event) => { event.preventDefault(); dragging = true }}
+        ondragleave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) dragging = false }}
+        ondrop={(event) => { event.preventDefault(); dragging = false; addImages([...(event.dataTransfer?.files ?? [])]) }}
+      >
+        <input
+          bind:this={fileInput}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onchange={(event) => {
+            addImages([...(event.currentTarget.files ?? [])], imageTarget)
+            event.currentTarget.value = ''
+          }}
+        />
+        {#if pendingImages.length}
+          <div class="composer-attachments">
+            {#each pendingImages as src, index}
+              <div class="composer-attachment">
+                <img src={src} alt="Attachment" />
+                <button type="button" aria-label="Remove image" onclick={() => removeImage(index)}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+            {/each}
+          </div>
+        {/if}
+        <textarea bind:this={textarea} bind:value={prompt} rows="1" aria-label="Message" placeholder="Message Saga" oninput={(event) => resizeTextarea(event.currentTarget)} onkeydown={handleKeydown} onpaste={handlePaste}></textarea>
         <div class="composer-footer">
+          <button
+            class="attach-button"
+            type="button"
+            disabled={loading || attaching || pendingImages.length >= maxPendingImages}
+            aria-label="Add image"
+            title="Add image"
+            onclick={() => pickImages('pending')}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+          </button>
           <div class="model-picker" aria-label="Current model">
             <span>Model</span>
             <strong title={model.trim() || 'Not selected'}>{model.trim() || 'Not selected'}</strong>
           </div>
-          <button class="send-button" type="submit" disabled={!prompt.trim() || loading} aria-label="Send message">
+          <button class="send-button" type="submit" disabled={(!prompt.trim() && !pendingImages.length) || loading || attaching} aria-label="Send message">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19V5"/><path d="m6 11 6-6 6 6"/></svg>
           </button>
         </div>

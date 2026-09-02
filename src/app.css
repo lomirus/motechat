@@ -202,6 +202,10 @@ svg {
   display: block;
 }
 
+.chat.has-attachments {
+  padding-bottom: 258px;
+}
+
 .welcome {
   width: min(680px, 100%);
   margin-top: -5vh;
@@ -258,11 +262,35 @@ h1, h2, p {
 .user .message-content {
   width: fit-content;
   max-width: 100%;
+}
+
+.user .message-text {
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
   padding: 11px 16px;
   border-radius: 18px 18px 5px 18px;
   background: var(--surface-soft);
   line-height: 1.55;
-  white-space: pre-wrap;
+}
+
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.message-images + .message-text {
+  margin-top: 8px;
+}
+
+.message-images img {
+  display: block;
+  max-width: min(280px, 100%);
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: 14px;
 }
 
 .user .message-block {
@@ -272,6 +300,11 @@ h1, h2, p {
 }
 .message-block.editing {
   width: min(650px, 82%);
+}
+
+.message-block.editing .composer-attachments {
+  width: 100%;
+  justify-content: flex-end;
 }
 .assistant .message-content {
   padding-top: 3px;
@@ -330,6 +363,21 @@ h1, h2, p {
 .edit-actions button:disabled {
   opacity: .35;
   cursor: default;
+}
+
+.edit-actions .edit-attach {
+  width: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.edit-actions .edit-attach svg {
+  width: 16px;
+}
+
+.composer-attachments + .message-editor {
+  margin-top: 8px;
 }
 
 .message-actions {
@@ -455,8 +503,51 @@ h1, h2, p {
   box-shadow: var(--shadow);
 }
 
-.composer:focus-within {
+.composer:focus-within,
+.composer.dragging {
   border-color: color-mix(in srgb, var(--text) 28%, var(--border));
+}
+
+.composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.composer-attachment {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+
+.composer-attachment img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.composer-attachment button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.composer-attachment svg {
+  width: 11px;
+  stroke-width: 2.4;
 }
 
 .composer textarea {
@@ -481,7 +572,7 @@ h1, h2, p {
 .composer-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   margin-top: 5px;
 }
@@ -497,6 +588,33 @@ h1, h2, p {
   border-radius: 9px;
   color: var(--muted);
   font-size: 11px;
+}
+
+.attach-button {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.attach-button:hover:not(:disabled) {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.attach-button:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+.attach-button svg {
+  width: 18px;
 }
 
 .model-picker > span {
@@ -896,6 +1014,9 @@ h1, h2, p {
   }
   .chat {
     padding: 78px 16px 178px;
+  }
+  .chat.has-attachments {
+    padding-bottom: 242px;
   }
   .welcome {
     margin-top: -2vh;
