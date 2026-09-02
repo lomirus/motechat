@@ -6,6 +6,7 @@
     extractResponseText,
     isRecord,
     modelsUrl,
+    outputSpeed,
     parseJson,
     readResponseJson,
     responseErrorMessage,
@@ -14,7 +15,7 @@
   } from './lib/responses'
 
   type Theme = 'system' | 'light' | 'dark'
-  type Message = { role: 'user' | 'assistant'; content: string; reasoning?: string }
+  type Message = { role: 'user' | 'assistant'; content: string; reasoning?: string; tokensPerSecond?: number; timeToFirstToken?: number }
 
   const storageKey = 'saga-settings'
 
@@ -157,6 +158,15 @@
     if (wasAtBottom) messageEnd?.scrollIntoView()
   }
 
+  function messageTiming({ tokensPerSecond, timeToFirstToken }: Message) {
+    const parts = []
+    if (tokensPerSecond) parts.push(`${tokensPerSecond.toFixed(1)} tokens/s`)
+    if (timeToFirstToken != null) {
+      parts.push(`${timeToFirstToken >= 1000 ? `${(timeToFirstToken / 1000).toFixed(1)}s` : `${Math.round(timeToFirstToken)}ms`} to first token`)
+    }
+    return parts.join(' · ')
+  }
+
   function requestReady() {
     if (!apiKey.trim() || !baseUrl.trim()) {
       error = 'Add an API Key and Base URL in Settings first.'
@@ -197,6 +207,7 @@
     copiedMessage = null
     loading = true
     await showMessages(nextMessages)
+    const requestedAt = performance.now()
 
     try {
       const response = await fetch(responsesUrl(baseUrl), {
@@ -221,14 +232,30 @@
       if (response.body && response.headers.get('content-type')?.includes('text/event-stream')) {
         let reply = ''
         let reasoning = ''
+        let tokens = 0
+        let startedAt = 0
+        let countedFromUsage = false
+        let tokensPerSecond: number | undefined
+        let timeToFirstToken: number | undefined
+        const assistant = () => ({ role: 'assistant' as const, content: reply, reasoning, tokensPerSecond, timeToFirstToken })
         for await (const event of responseDeltas(response.body)) {
-          if (event.type === 'reasoning') {
-            if (!showReasoning) continue
-            reasoning += event.delta
+          if (event.type === 'usage') {
+            countedFromUsage = true
+            tokens = event.outputTokens
           } else {
-            reply += event.delta
+            if (!startedAt) startedAt = performance.now()
+            if (!countedFromUsage) tokens += 1
+            if (event.type === 'reasoning') {
+              if (showReasoning) reasoning += event.delta
+            } else {
+              reply += event.delta
+            }
+            if (timeToFirstToken === undefined && (event.type !== 'reasoning' || showReasoning)) {
+              timeToFirstToken = performance.now() - requestedAt
+            }
           }
-          await showMessages([...nextMessages, { role: 'assistant', content: reply, reasoning }])
+          tokensPerSecond = startedAt ? outputSpeed(tokens, performance.now() - startedAt) : undefined
+          await showMessages([...nextMessages, assistant()])
         }
         if (!reply) throw new Error('The service returned an empty response.')
       } else {
@@ -372,8 +399,14 @@
                         <div>{message.reasoning}</div>
                       </details>
                     {/if}
-                    {message.content}
+                    {#if message.content}<div class="message-text">{message.content}</div>{/if}
                   </div>
+                  {#if message.role === 'assistant'}
+                    {@const timing = messageTiming(message)}
+                    {#if timing}
+                      <p class="message-speed">{timing}</p>
+                    {/if}
+                  {/if}
                   <div class="message-actions">
                     <button type="button" onclick={() => copyMessage(message.content, index)}>
                       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg>

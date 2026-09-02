@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import {
   extractModelIds,
+  extractOutputTokens,
   extractResponseReasoning,
   extractResponseText,
   modelsUrl,
+  outputSpeed,
   responseDeltas,
   responsesUrl,
   responseTextDeltas,
@@ -46,4 +48,24 @@ assert.deepEqual(events, [
   { type: 'reasoning', delta: 'Think' },
   { type: 'output_text', delta: 'Hel' },
   { type: 'output_text', delta: 'lo' },
+])
+
+assert.equal(extractOutputTokens({ usage: { output_tokens: 42 } }), 42)
+assert.equal(extractOutputTokens({ response: { usage: { output_tokens: 7 } } }), 7)
+assert.equal(extractOutputTokens({ usage: { output_tokens: 0 } }), undefined)
+assert.equal(outputSpeed(50, 2000), 25)
+assert.equal(outputSpeed(0, 1000), undefined)
+
+const usageBody = new ReadableStream<Uint8Array>({
+  start(controller) {
+    controller.enqueue(encoder.encode('data: {"type":"response.output_text.delta","delta":"Hi"}\n\n'))
+    controller.enqueue(encoder.encode('data: {"type":"response.completed","response":{"usage":{"output_tokens":3}}}\n\n'))
+    controller.close()
+  },
+})
+const usageEvents = []
+for await (const event of responseDeltas(usageBody)) usageEvents.push(event)
+assert.deepEqual(usageEvents, [
+  { type: 'output_text', delta: 'Hi' },
+  { type: 'usage', outputTokens: 3 },
 ])

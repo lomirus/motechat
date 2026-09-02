@@ -75,6 +75,23 @@ export function extractResponseReasoning(response: unknown): string {
     .join('\n')
 }
 
+export function extractOutputTokens(response: unknown): number | undefined {
+  if (!isRecord(response)) return
+  const usage = isRecord(response.usage)
+    ? response.usage
+    : isRecord(response.response) && isRecord(response.response.usage)
+      ? response.response.usage
+      : undefined
+  return isRecord(usage) && typeof usage.output_tokens === 'number' && usage.output_tokens > 0
+    ? usage.output_tokens
+    : undefined
+}
+
+export function outputSpeed(tokens: number, elapsedMs: number): number | undefined {
+  if (tokens <= 0 || elapsedMs <= 0) return
+  return tokens / (elapsedMs / 1000)
+}
+
 export async function* responseDeltas(body: ReadableStream<Uint8Array>) {
   const reader = body.getReader()
   const decoder = new TextDecoder()
@@ -105,6 +122,8 @@ export async function* responseDeltas(body: ReadableStream<Uint8Array>) {
         && typeof payload.delta === 'string') {
         yield { type: 'reasoning' as const, delta: payload.delta }
       }
+      const outputTokens = extractOutputTokens(payload)
+      if (outputTokens) yield { type: 'usage' as const, outputTokens }
       if (payload.type === 'error' || payload.type === 'response.failed') {
         throw new Error(responseErrorMessage(payload) || 'Response failed.')
       }
