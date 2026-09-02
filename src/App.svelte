@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
+  import Select from './lib/Select.svelte'
   import {
     extractModelIds,
     extractResponseReasoning,
@@ -14,6 +15,9 @@
     responseDeltas,
     toResponseInput,
     imageFileError,
+    isReasoningEffort,
+    reasoningConfig,
+    type ReasoningEffort,
   } from './lib/responses'
 
   type Theme = 'system' | 'light' | 'dark'
@@ -21,6 +25,16 @@
 
   const storageKey = 'saga-settings'
   const maxPendingImages = 8
+  const reasoningEffortOptions: [ReasoningEffort | '', string][] = [
+    ['', 'Default'],
+    ['none', 'None'],
+    ['minimal', 'Minimal'],
+    ['low', 'Low'],
+    ['medium', 'Medium'],
+    ['high', 'High'],
+    ['xhigh', 'Extra High'],
+    ['max', 'Max'],
+  ]
 
   let page: 'chat' | 'settings' = 'chat'
   let theme: Theme = 'system'
@@ -30,10 +44,10 @@
   let availableModels: string[] = []
   let modelsLoading = false
   let modelsError = ''
-  let modelsOpen = false
   let systemPrompt = ''
   let showApiKey = false
   let showReasoning = false
+  let reasoningEffort: ReasoningEffort | '' = ''
   let prompt = ''
   let pendingImages: string[] = []
   let editImages: string[] = []
@@ -70,6 +84,7 @@
           : []
         systemPrompt = typeof stored.systemPrompt === 'string' ? stored.systemPrompt : ''
         showReasoning = stored.showReasoning === true
+        reasoningEffort = isReasoningEffort(stored.reasoningEffort) ? stored.reasoningEffort : ''
       }
     } catch {
       // Ignore malformed local preferences and keep safe defaults.
@@ -109,6 +124,7 @@
       availableModels,
       systemPrompt: systemPrompt.trim(),
       showReasoning,
+      reasoningEffort,
     }))
   }
 
@@ -243,7 +259,6 @@
 
   async function refreshModels() {
     if (!apiKey.trim() || !baseUrl.trim() || modelsLoading) return
-    modelsOpen = false
     modelsLoading = true
     modelsError = ''
 
@@ -272,6 +287,7 @@
     const requestedAt = performance.now()
 
     try {
+      const reasoning = reasoningConfig(reasoningEffort, showReasoning)
       const response = await fetch(responsesUrl(baseUrl), {
         method: 'POST',
         headers: {
@@ -283,7 +299,7 @@
           input: toResponseInput(nextMessages),
           stream: true,
           ...(systemPrompt.trim() ? { instructions: systemPrompt.trim() } : {}),
-          ...(showReasoning ? { reasoning: { summary: 'auto' } } : {}),
+          ...(reasoning ? { reasoning } : {}),
         }),
       })
       if (!response.ok) {
@@ -668,65 +684,16 @@
             <div class="model-field">
               <label for="model-input"><span>Model</span></label>
               <div class="model-input-row">
-                <div
-                  class="model-select"
-                  onfocusout={(event) => {
-                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) modelsOpen = false
-                  }}
-                >
-                  <input
-                    id="model-input"
-                    type="text"
-                    bind:value={model}
-                    placeholder="Model ID"
-                    autocomplete="off"
-                    spellcheck="false"
-                    onkeydown={(event) => {
-                      if (event.key === 'Escape') modelsOpen = false
-                      if (event.key === 'ArrowDown' && availableModels.length) {
-                        event.preventDefault()
-                        modelsOpen = true
-                      }
-                    }}
-                  />
-                  <button
-                    class="model-select-toggle"
-                    type="button"
-                    disabled={!availableModels.length}
-                    aria-label={modelsOpen ? 'Hide model list' : 'Show model list'}
-                    aria-expanded={modelsOpen}
-                    aria-controls="model-options"
-                    onclick={() => (modelsOpen = !modelsOpen)}
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
-                  </button>
-                  {#if modelsOpen}
-                    <div
-                      id="model-options"
-                      class="model-options"
-                      role="listbox"
-                      tabindex="-1"
-                      aria-label="Available models"
-                      onkeydown={(event) => {
-                        if (event.key === 'Escape') modelsOpen = false
-                      }}
-                    >
-                      {#each availableModels as availableModel}
-                        <button
-                          class:selected={availableModel === model}
-                          type="button"
-                          role="option"
-                          aria-selected={availableModel === model}
-                          onclick={() => {
-                            model = availableModel
-                            modelsOpen = false
-                            saveSettings()
-                          }}
-                        >{availableModel}</button>
-                      {/each}
-                    </div>
-                  {/if}
-                </div>
+                <Select
+                  id="model-input"
+                  bind:value={model}
+                  editable
+                  placeholder="Model ID"
+                  options={availableModels}
+                  listLabel="Available models"
+                  listName="model list"
+                  onchange={saveSettings}
+                />
                 <button
                   class="refresh-models"
                   class:loading={modelsLoading}
@@ -747,6 +714,18 @@
               {:else}
                 <small>Enter a model ID, or refresh the list after adding an API Key and Base URL.</small>
               {/if}
+            </div>
+            <div class="model-field">
+              <label for="effort-input"><span>Thinking intensity</span></label>
+              <Select
+                id="effort-input"
+                bind:value={reasoningEffort}
+                options={reasoningEffortOptions}
+                listLabel="Thinking intensity"
+                listName="thinking intensity list"
+                onchange={saveSettings}
+              />
+              <small>Sent as <code>reasoning.effort</code>. Supported values vary by model.</small>
             </div>
             <label class="reasoning-toggle">
               <input type="checkbox" bind:checked={showReasoning} />

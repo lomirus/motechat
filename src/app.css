@@ -866,6 +866,9 @@ h1, h2, p {
   min-width: 0;
   padding-right: 44px;
 }
+.model-select input[readonly] {
+  cursor: pointer;
+}
 .fields .model-select-toggle {
   position: absolute;
   inset: 0 0 auto auto;
@@ -902,6 +905,8 @@ h1, h2, p {
   position: absolute;
   z-index: 20;
   inset: calc(100% + 6px) 0 auto;
+  display: grid;
+  gap: 6px;
   max-height: 220px;
   padding: 6px;
   overflow-y: auto;

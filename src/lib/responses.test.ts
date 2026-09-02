@@ -6,7 +6,9 @@ import {
   extractResponseText,
   modelsUrl,
   imageFileError,
+  isReasoningEffort,
   outputSpeed,
+  reasoningConfig,
   responseDeltas,
   responsesUrl,
   responseTextDeltas,
@@ -57,6 +59,12 @@ assert.equal(extractOutputTokens({ response: { usage: { output_tokens: 7 } } }),
 assert.equal(extractOutputTokens({ usage: { output_tokens: 0 } }), undefined)
 assert.equal(outputSpeed(50, 2000), 25)
 assert.equal(outputSpeed(0, 1000), undefined)
+assert.equal(isReasoningEffort('high'), true)
+assert.equal(isReasoningEffort('default'), false)
+assert.equal(reasoningConfig('', false), undefined)
+assert.deepEqual(reasoningConfig('', true), { summary: 'auto' })
+assert.deepEqual(reasoningConfig('high', false), { effort: 'high' })
+assert.deepEqual(reasoningConfig('high', true), { effort: 'high', summary: 'auto' })
 assert.equal(imageFileError({ type: 'image/png', size: 12 }), undefined)
 assert.equal(imageFileError({ type: 'image/svg+xml', size: 12 }), 'Choose a photo, screenshot, or other image file.')
 assert.equal(imageFileError({ type: 'text/plain', size: 12 }), 'Choose a photo, screenshot, or other image file.')

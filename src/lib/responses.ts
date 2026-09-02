@@ -101,6 +101,21 @@ export function imageFileError(file: { type: string; size: number }): string | u
   if (file.size > maxImageBytes) return 'Images must be 10 MB or smaller.'
 }
 
+export const reasoningEfforts = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
+export type ReasoningEffort = typeof reasoningEfforts[number]
+
+export function isReasoningEffort(value: unknown): value is ReasoningEffort {
+  return reasoningEfforts.includes(value as ReasoningEffort)
+}
+
+export function reasoningConfig(effort: ReasoningEffort | '', showSummary: boolean) {
+  if (!effort && !showSummary) return
+  return {
+    ...(effort ? { effort } : {}),
+    ...(showSummary ? { summary: 'auto' as const } : {}),
+  }
+}
+
 export function toResponseInput(messages: { role: string; content: string; images?: string[] }[]) {
   return messages.map(({ role, content, images }) => {
     if (!images?.length) return { role, content }
