@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import Select from './lib/Select.svelte'
+  import { createProfile, parseProfiles, type Profile } from './lib/profiles'
   import {
     extractModelIds,
     extractResponseReasoning,
@@ -44,6 +45,10 @@
   let availableModels: string[] = []
   let modelsLoading = false
   let modelsError = ''
+  let profiles: Profile[] = [{ id: 'default', name: 'Default', systemPrompt: '' }]
+  let activeProfileId = 'default'
+  let profileName = 'Default'
+  let profileMenuOpen = false
   let systemPrompt = ''
   let showApiKey = false
   let showReasoning = false
@@ -82,7 +87,10 @@
         availableModels = Array.isArray(stored.availableModels)
           ? stored.availableModels.filter((value): value is string => typeof value === 'string')
           : []
-        systemPrompt = typeof stored.systemPrompt === 'string' ? stored.systemPrompt : ''
+        const parsed = parseProfiles(stored)
+        profiles = parsed.profiles
+        activeProfileId = parsed.activeProfileId
+        loadActiveProfile()
         showReasoning = stored.showReasoning === true
         reasoningEffort = isReasoningEffort(stored.reasoningEffort) ? stored.reasoningEffort : ''
       }
@@ -115,14 +123,53 @@
     saveSettings()
   }
 
+  function persistActiveProfile() {
+    profiles = profiles.map((profile) => profile.id === activeProfileId
+      ? { ...profile, name: profileName.trim() || profile.name, systemPrompt: systemPrompt.trim() }
+      : profile)
+  }
+
+  function loadActiveProfile() {
+    const active = profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0]
+    activeProfileId = active.id
+    profileName = active.name
+    systemPrompt = active.systemPrompt
+  }
+
+  function switchProfile(id: string) {
+    if (id === activeProfileId) return
+    persistActiveProfile()
+    activeProfileId = id
+    loadActiveProfile()
+    saveSettings()
+  }
+
+  function addProfile() {
+    persistActiveProfile()
+    const profile = createProfile(profiles)
+    profiles = [...profiles, profile]
+    activeProfileId = profile.id
+    loadActiveProfile()
+    saveSettings()
+  }
+
+  function deleteProfile() {
+    if (profiles.length < 2 || !confirm(`Delete profile "${profileName}"?`)) return
+    profiles = profiles.filter((profile) => profile.id !== activeProfileId)
+    loadActiveProfile()
+    saveSettings()
+  }
+
   function saveSettings() {
+    persistActiveProfile()
     localStorage.setItem(storageKey, JSON.stringify({
       theme,
       apiKey: apiKey.trim(),
       baseUrl: baseUrl.trim().replace(/\/+$/, ''),
       model: model.trim(),
       availableModels,
-      systemPrompt: systemPrompt.trim(),
+      profiles,
+      activeProfileId,
       showReasoning,
       reasoningEffort,
     }))
@@ -421,6 +468,7 @@
     prompt = ''
     pendingImages = []
     error = ''
+    profileMenuOpen = false
     cancelEdit()
   }
 </script>
@@ -442,7 +490,7 @@
         <button class="icon-button" type="button" aria-label="New chat" title="New chat" onclick={newChat}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
         </button>
-        <button class="icon-button" type="button" aria-label="Open Settings" title="Settings" onclick={() => (page = 'settings')}>
+        <button class="icon-button" type="button" aria-label="Open Settings" title="Settings" onclick={() => { profileMenuOpen = false; page = 'settings' }}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
         </button>
       </div>
@@ -455,6 +503,52 @@
         <section class="welcome" aria-labelledby="welcome-title">
           <h1 id="welcome-title">How can I help?</h1>
           <p>Ask a question, explore an idea, or get something done.</p>
+          <div
+            class="welcome-profile"
+            onfocusout={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) profileMenuOpen = false
+            }}
+          >
+            <button
+              type="button"
+              disabled={profiles.length < 2}
+              aria-label="Profile: {profileName}"
+              aria-haspopup="listbox"
+              aria-expanded={profileMenuOpen}
+              aria-controls="welcome-profile-options"
+              onclick={() => (profileMenuOpen = !profileMenuOpen)}
+            >
+              {profileName}
+              {#if profiles.length > 1}
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+              {/if}
+            </button>
+            {#if profileMenuOpen}
+              <div
+                id="welcome-profile-options"
+                class="welcome-profile-list"
+                role="listbox"
+                tabindex="-1"
+                aria-label="Profiles"
+                onkeydown={(event) => {
+                  if (event.key === 'Escape') profileMenuOpen = false
+                }}
+              >
+                {#each profiles as profile}
+                  <button
+                    class:selected={profile.id === activeProfileId}
+                    type="button"
+                    role="option"
+                    aria-selected={profile.id === activeProfileId}
+                    onclick={() => {
+                      profileMenuOpen = false
+                      switchProfile(profile.id)
+                    }}
+                  >{profile.name}</button>
+                {/each}
+              </div>
+            {/if}
+          </div>
         </section>
       {:else}
         <section class="messages" aria-live="polite">
@@ -734,12 +828,48 @@
           </div>
         </section>
 
-        <section class="settings-card" aria-labelledby="system-prompt-title">
+        <section class="settings-card" aria-labelledby="profile-title">
           <div class="setting-copy">
-            <h2 id="system-prompt-title">System prompt</h2>
-            <p>Set instructions that apply to every response.</p>
+            <h2 id="profile-title">Profile</h2>
+            <p>Create and switch profiles. Each one stores its own instructions.</p>
           </div>
           <div class="fields">
+            <div class="model-field">
+              <label for="profile-input"><span>Current profile</span></label>
+              <div class="model-input-row">
+                <Select
+                  id="profile-input"
+                  value={activeProfileId}
+                  options={profiles.map((profile): [string, string] => [profile.id, profile.name])}
+                  listLabel="Profiles"
+                  listName="profile list"
+                  onchange={switchProfile}
+                />
+                <button
+                  class="profile-action"
+                  type="button"
+                  aria-label="New profile"
+                  title="New profile"
+                  onclick={addProfile}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+                <button
+                  class="profile-action"
+                  type="button"
+                  disabled={profiles.length < 2}
+                  aria-label="Delete profile"
+                  title="Delete profile"
+                  onclick={deleteProfile}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/></svg>
+                </button>
+              </div>
+            </div>
+            <label>
+              <span>Name</span>
+              <input bind:value={profileName} placeholder="Profile name" />
+            </label>
             <label>
               <span>Instructions</span>
               <textarea bind:value={systemPrompt} rows="6" placeholder="You are a helpful assistant."></textarea>

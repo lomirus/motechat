@@ -18,7 +18,7 @@
     editable?: boolean
     listLabel: string
     listName: string
-    onchange?: () => void
+    onchange?: (value: string) => void
   } = $props()
 
   let open = $state(false)
@@ -50,7 +50,7 @@
   function choose(next: string) {
     value = next
     open = false
-    onchange?.()
+    onchange?.(next)
   }
 </script>
 
