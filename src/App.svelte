@@ -45,9 +45,11 @@
   let availableModels: string[] = []
   let modelsLoading = false
   let modelsError = ''
-  let profiles: Profile[] = [{ id: 'default', name: 'Default', systemPrompt: '' }]
+  let profiles: Profile[] = [{ id: 'default', name: 'Default', systemPrompt: '', icon: '' }]
   let activeProfileId = 'default'
   let profileName = 'Default'
+  let profileIcon = ''
+  let iconError = ''
   let profileMenuOpen = false
   let systemPrompt = ''
   let showApiKey = false
@@ -67,6 +69,7 @@
   let editPrompt = ''
   let form: HTMLFormElement
   let fileInput: HTMLInputElement
+  let iconInput: HTMLInputElement
   let textarea: HTMLTextAreaElement
   let editTextarea: HTMLTextAreaElement
   let messageEnd: HTMLDivElement
@@ -125,7 +128,7 @@
 
   function persistActiveProfile() {
     profiles = profiles.map((profile) => profile.id === activeProfileId
-      ? { ...profile, name: profileName.trim() || profile.name, systemPrompt: systemPrompt.trim() }
+      ? { ...profile, name: profileName.trim() || profile.name, systemPrompt: systemPrompt.trim(), icon: profileIcon }
       : profile)
   }
 
@@ -133,7 +136,9 @@
     const active = profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0]
     activeProfileId = active.id
     profileName = active.name
+    profileIcon = active.icon
     systemPrompt = active.systemPrompt
+    iconError = ''
   }
 
   function switchProfile(id: string) {
@@ -192,6 +197,40 @@
       reader.onerror = () => reject(new Error('Could not read this image.'))
       reader.readAsDataURL(file)
     })
+  }
+
+  const profileIconSize = 128
+
+  function readIcon(file: File) {
+    return readImage(file).then((src) => new Promise<string>((resolve, reject) => {
+      const image = new Image()
+      image.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = profileIconSize
+        canvas.height = profileIconSize
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return resolve(src)
+        const scale = Math.max(profileIconSize / image.width, profileIconSize / image.height)
+        const width = image.width * scale
+        const height = image.height * scale
+        ctx.drawImage(image, (profileIconSize - width) / 2, (profileIconSize - height) / 2, width, height)
+        resolve(canvas.toDataURL('image/png'))
+      }
+      image.onerror = () => reject(new Error('Could not read this image.'))
+      image.src = src
+    }))
+  }
+
+  async function setProfileIcon(files: File[]) {
+    const file = files[0]
+    if (!file) return
+    try {
+      profileIcon = await readIcon(file)
+      iconError = ''
+      saveSettings()
+    } catch (cause) {
+      iconError = cause instanceof Error ? cause.message : 'Could not add this image.'
+    }
   }
 
   async function addImages(files: File[], into: 'pending' | 'edit' = 'pending') {
@@ -555,7 +594,9 @@
           {#each messages as message, index}
             <article class:assistant={message.role === 'assistant'} class:user={message.role === 'user'}>
               {#if message.role === 'assistant'}
-                <span class="avatar" aria-hidden="true"></span>
+                <span class="avatar" aria-hidden="true">
+                  {#if profileIcon}<img src={profileIcon} alt="" />{/if}
+                </span>
               {/if}
               <div class="message-block" class:editing={message.role === 'user' && editingMessage === index}>
                 {#if message.role === 'user' && editingMessage === index}
@@ -643,7 +684,9 @@
           {/each}
           {#if loading && messages[messages.length - 1]?.role !== 'assistant'}
             <article class="assistant">
-              <span class="avatar" aria-hidden="true"></span>
+              <span class="avatar" aria-hidden="true">
+                {#if profileIcon}<img src={profileIcon} alt="" />{/if}
+              </span>
               <div class="typing" aria-label="AI is responding"><i></i><i></i><i></i></div>
             </article>
           {/if}
@@ -831,7 +874,7 @@
         <section class="settings-card" aria-labelledby="profile-title">
           <div class="setting-copy">
             <h2 id="profile-title">Profile</h2>
-            <p>Create and switch profiles. Each one stores its own instructions.</p>
+            <p>Create and switch profiles. Each one stores its own icon and instructions.</p>
           </div>
           <div class="fields">
             <div class="model-field">
@@ -870,6 +913,47 @@
               <span>Name</span>
               <input bind:value={profileName} placeholder="Profile name" />
             </label>
+            <div class="model-field">
+              <label for="profile-icon-input"><span>Icon</span></label>
+              <input
+                id="profile-icon-input"
+                bind:this={iconInput}
+                type="file"
+                accept="image/*"
+                hidden
+                onchange={(event) => {
+                  setProfileIcon([...(event.currentTarget.files ?? [])])
+                  event.currentTarget.value = ''
+                }}
+              />
+              <div class="profile-icon-row">
+                <button
+                  class="profile-icon"
+                  type="button"
+                  aria-label={profileIcon ? 'Replace profile icon' : 'Upload profile icon'}
+                  title={profileIcon ? 'Replace icon' : 'Upload icon'}
+                  onclick={() => iconInput.click()}
+                >
+                  {#if profileIcon}<img src={profileIcon} alt="" />{/if}
+                </button>
+                {#if profileIcon}
+                  <button
+                    class="profile-icon-clear"
+                    type="button"
+                    aria-label="Remove profile icon"
+                    title="Remove icon"
+                    onclick={() => { profileIcon = ''; saveSettings() }}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  </button>
+                {/if}
+              </div>
+              {#if iconError}
+                <small class="field-error" role="alert">{iconError}</small>
+              {:else}
+                <small>Shown next to assistant replies. Optional.</small>
+              {/if}
+            </div>
             <label>
               <span>Instructions</span>
               <textarea bind:value={systemPrompt} rows="6" placeholder="You are a helpful assistant."></textarea>

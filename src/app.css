@@ -156,15 +156,13 @@ svg {
   cursor: pointer;
 }
 
-.brand-mark, .avatar {
+.brand-mark {
+  overflow: hidden;
+  width: 28px;
+  height: 28px;
   background: #fff;
   border-radius: 50%;
   box-shadow: 0 0 0 1px rgb(0 0 0 / 7%);
-}
-
-.brand-mark {
-  width: 28px;
-  height: 28px;
 }
 .top-actions {
   display: flex;
@@ -533,6 +531,16 @@ h1, h2, p {
   flex: 0 0 auto;
   width: 28px;
   height: 28px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-soft);
+}
+.avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .typing {
@@ -1032,6 +1040,48 @@ h1, h2, p {
 .fields .profile-action:disabled {
   opacity: .45;
   cursor: default;
+}
+.profile-icon-row {
+  position: relative;
+  width: fit-content;
+}
+.fields .profile-icon {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+.fields .profile-icon:hover {
+  background: var(--surface-hover);
+}
+.profile-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.fields .profile-icon-clear {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.fields .profile-icon-clear svg {
+  width: 11px;
+  stroke-width: 2.4;
 }
 .fields small {
   display: block;

@@ -4,14 +4,21 @@ export type Profile = {
   id: string
   name: string
   systemPrompt: string
+  icon: string
 }
 
-function isProfile(value: unknown): value is Profile {
-  return isRecord(value)
-    && typeof value.id === 'string'
-    && value.id.length > 0
-    && typeof value.name === 'string'
-    && typeof value.systemPrompt === 'string'
+function toProfile(value: unknown): Profile | undefined {
+  if (!isRecord(value)
+    || typeof value.id !== 'string'
+    || !value.id
+    || typeof value.name !== 'string'
+    || typeof value.systemPrompt !== 'string') return
+  return {
+    id: value.id,
+    name: value.name,
+    systemPrompt: value.systemPrompt,
+    icon: typeof value.icon === 'string' ? value.icon : '',
+  }
 }
 
 export function nextProfileName(names: readonly string[]): string {
@@ -28,14 +35,20 @@ export function createProfile(existing: readonly Profile[], systemPrompt = ''): 
     id: crypto.randomUUID(),
     name: nextProfileName(existing.map((profile) => profile.name)),
     systemPrompt,
+    icon: '',
   }
 }
 
 export function parseProfiles(stored: Record<string, unknown>): { profiles: Profile[]; activeProfileId: string } {
-  const profiles = Array.isArray(stored.profiles) ? stored.profiles.filter(isProfile) : []
+  const profiles = Array.isArray(stored.profiles)
+    ? stored.profiles.flatMap((value) => {
+        const profile = toProfile(value)
+        return profile ? [profile] : []
+      })
+    : []
   if (!profiles.length) {
     const systemPrompt = typeof stored.systemPrompt === 'string' ? stored.systemPrompt : ''
-    const fallback = { id: 'default', name: 'Default', systemPrompt }
+    const fallback = { id: 'default', name: 'Default', systemPrompt, icon: '' }
     return { profiles: [fallback], activeProfileId: fallback.id }
   }
   const activeProfileId = typeof stored.activeProfileId === 'string'
