@@ -206,10 +206,10 @@
     if (scrollbar.hasPointerCapture(event.pointerId)) scrollbar.releasePointerCapture(event.pointerId)
   }
 
-  function handleKeydown(event: KeyboardEvent) {
+  function handleKeydown(event: KeyboardEvent, submit = () => form.requestSubmit()) {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault()
-      form.requestSubmit()
+      submit()
     }
   }
 
@@ -468,6 +468,7 @@
                     aria-label="Edit message"
                     rows="1"
                     oninput={(event) => resizeTextarea(event.currentTarget)}
+                    onkeydown={(event) => handleKeydown(event, () => saveEdit(index))}
                     onpaste={(event) => handlePaste(event, 'edit')}
                   ></textarea>
                   <div class="edit-actions">
