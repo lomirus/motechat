@@ -650,23 +650,12 @@ h1, h2, p {
 }
 .composer-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
+  row-gap: 8px;
   margin-top: 5px;
-}
-
-.model-picker {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  color: var(--muted);
-  font-size: 11px;
 }
 
 .attach-button {
@@ -696,18 +685,89 @@ h1, h2, p {
   width: 18px;
 }
 
-.model-picker > span {
-  font-weight: 650;
-}
-.model-picker strong {
-  max-width: 180px;
+.collection-switch {
+  flex: 0 1 auto;
   min-width: 0;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 0 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.collection-switch > label {
+  font-weight: 650;
+  white-space: nowrap;
+}
+.collection-switch > label:empty {
+  display: none;
+}
+.collection-switch .model-select input {
+  width: 110px;
+  height: 30px;
+  padding: 0 26px 0 0;
+  border: 0;
+  outline: none;
+  background: transparent;
   color: var(--text);
   font-size: 12px;
   font-weight: 500;
   text-overflow: ellipsis;
+  cursor: pointer;
+}
+.collection-switch .model-select-toggle {
+  position: absolute;
+  inset: 0 0 auto auto;
+  width: 26px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.collection-switch .model-select-toggle:hover {
+  color: var(--text);
+}
+.collection-switch .model-select-toggle:disabled {
+  opacity: .35;
+  cursor: default;
+}
+.collection-switch .model-select-toggle svg {
+  width: 14px;
+}
+.collection-switch .model-options {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 6px);
+  left: 0;
+  width: max-content;
+  min-width: 100%;
+  max-width: 240px;
+}
+.collection-switch .model-options button {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
   white-space: nowrap;
+  cursor: pointer;
+}
+.collection-switch .model-options button:hover,
+.collection-switch .model-options button:focus-visible,
+.collection-switch .model-options button.selected {
+  background: var(--surface-soft);
+  outline: 0;
 }
 
 .composer-send {
@@ -1323,6 +1383,71 @@ h1, h2, p {
   background: var(--surface-soft);
   color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.collection-fields {
+  display: grid;
+  gap: 12px;
+}
+.collection-field {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-soft);
+}
+.collection-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.collection-options .input-with-action {
+  min-width: 0;
+}
+.collection-options .profile-action {
+  width: 100%;
+}
+.fields .add-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.collection-fields + .add-field {
+  margin-top: 10px;
+}
+.fields .add-field:hover {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+.fields .add-field svg {
+  width: 16px;
+}
+.collection-mapping {
+  display: grid;
+  gap: 8px;
+}
+.collection-combo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 10px;
+  align-items: center;
+}
+.collection-combo > label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 @keyframes enter {
   from {
