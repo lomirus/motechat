@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import Select from './lib/Select.svelte'
+  import { createConnection, parseConnections, type Connection } from './lib/connections'
   import { createProfile, parseProfiles, type Profile } from './lib/profiles'
   import {
     extractModelIds,
@@ -8,7 +9,6 @@
     extractResponseText,
     extractUsage,
     formatMoney,
-    isCurrency,
     addUsage,
     usageCost,
     usageParts,
@@ -23,7 +23,6 @@
     responseDeltas,
     toResponseInput,
     imageFileError,
-    isReasoningEffort,
     reasoningConfig,
     type Currency,
     type ReasoningEffort,
@@ -55,6 +54,9 @@
 
   let page: 'chat' | 'settings' = 'chat'
   let theme: Theme = 'system'
+  let connections: Connection[] = parseConnections({}).connections
+  let activeConnectionId = connections[0].id
+  let connectionName = connections[0].name
   let apiKey = ''
   let baseUrl = ''
   let model = ''
@@ -107,24 +109,14 @@
       const stored = parseJson(localStorage.getItem(storageKey) || '{}')
       if (isRecord(stored)) {
         theme = stored.theme === 'light' || stored.theme === 'dark' ? stored.theme : 'system'
-        apiKey = typeof stored.apiKey === 'string' ? stored.apiKey : ''
-        baseUrl = typeof stored.baseUrl === 'string' ? stored.baseUrl : baseUrl
-        model = typeof stored.model === 'string' ? stored.model : ''
-        contextLength = typeof stored.contextLength === 'number' && stored.contextLength > 0
-          ? Math.floor(stored.contextLength)
-          : null
-        currency = isCurrency(stored.currency) ? stored.currency : 'CNY'
-        cacheHitPrice = readPrice(stored.cacheHitPrice)
-        cacheMissPrice = readPrice(stored.cacheMissPrice)
-        outputPrice = readPrice(stored.outputPrice)
-        availableModels = Array.isArray(stored.availableModels)
-          ? stored.availableModels.filter((value): value is string => typeof value === 'string')
-          : []
-        const parsed = parseProfiles(stored)
-        profiles = parsed.profiles
-        activeProfileId = parsed.activeProfileId
+        const parsedProfiles = parseProfiles(stored)
+        profiles = parsedProfiles.profiles
+        activeProfileId = parsedProfiles.activeProfileId
         loadActiveProfile()
-        reasoningEffort = isReasoningEffort(stored.reasoningEffort) ? stored.reasoningEffort : ''
+        const parsedConnections = parseConnections(stored)
+        connections = parsedConnections.connections
+        activeConnectionId = parsedConnections.activeConnectionId
+        loadActiveConnection()
       }
     } catch {
       // Ignore malformed local preferences and keep safe defaults.
@@ -176,6 +168,68 @@
     saveSettings()
   }
 
+  function persistActiveConnection() {
+    connections = connections.map((connection) => connection.id === activeConnectionId
+      ? {
+          ...connection,
+          name: connectionName.trim() || connection.name,
+          apiKey: apiKey.trim(),
+          baseUrl: baseUrl.trim().replace(/\/+$/, ''),
+          model: model.trim(),
+          contextLength: typeof contextLength === 'number' && contextLength > 0 ? Math.floor(contextLength) : null,
+          currency,
+          cacheHitPrice: readPrice(cacheHitPrice),
+          cacheMissPrice: readPrice(cacheMissPrice),
+          outputPrice: readPrice(outputPrice),
+          availableModels,
+          reasoningEffort,
+        }
+      : connection)
+  }
+
+  function loadActiveConnection() {
+    const active = connections.find((connection) => connection.id === activeConnectionId) ?? connections[0]
+    activeConnectionId = active.id
+    connectionName = active.name
+    apiKey = active.apiKey
+    baseUrl = active.baseUrl
+    model = active.model
+    contextLength = active.contextLength
+    currency = active.currency
+    cacheHitPrice = active.cacheHitPrice
+    cacheMissPrice = active.cacheMissPrice
+    outputPrice = active.outputPrice
+    availableModels = active.availableModels
+    reasoningEffort = active.reasoningEffort
+    modelsLoading = false
+    modelsError = ''
+    showApiKey = false
+  }
+
+  function switchConnection(id: string) {
+    if (id === activeConnectionId) return
+    persistActiveConnection()
+    activeConnectionId = id
+    loadActiveConnection()
+    saveSettings()
+  }
+
+  function addConnection() {
+    persistActiveConnection()
+    const connection = createConnection(connections)
+    connections = [...connections, connection]
+    activeConnectionId = connection.id
+    loadActiveConnection()
+    saveSettings()
+  }
+
+  function deleteConnection() {
+    if (connections.length < 2 || !confirm(`Delete connection "${connectionName}"?`)) return
+    connections = connections.filter((connection) => connection.id !== activeConnectionId)
+    loadActiveConnection()
+    saveSettings()
+  }
+
   function persistActiveProfile() {
     profiles = profiles.map((profile) => profile.id === activeProfileId
       ? { ...profile, name: profileName.trim() || profile.name, systemPrompt: systemPrompt.trim(), icon: profileIcon }
@@ -217,20 +271,13 @@
 
   function saveSettings() {
     persistActiveProfile()
+    persistActiveConnection()
     localStorage.setItem(storageKey, JSON.stringify({
       theme,
-      apiKey: apiKey.trim(),
-      baseUrl: baseUrl.trim().replace(/\/+$/, ''),
-      model: model.trim(),
-      contextLength: typeof contextLength === 'number' && contextLength > 0 ? Math.floor(contextLength) : 0,
-      currency,
-      cacheHitPrice: readPrice(cacheHitPrice) ?? 0,
-      cacheMissPrice: readPrice(cacheMissPrice) ?? 0,
-      outputPrice: readPrice(outputPrice) ?? 0,
-      availableModels,
+      connections,
+      activeConnectionId,
       profiles,
       activeProfileId,
-      reasoningEffort,
     }))
   }
 
@@ -423,6 +470,7 @@
 
   async function refreshModels() {
     if (!apiKey.trim() || !baseUrl.trim() || modelsLoading) return
+    const requestedId = activeConnectionId
     modelsLoading = true
     modelsError = ''
 
@@ -432,14 +480,16 @@
       })
       const data = await readResponseJson(response).catch((): unknown => undefined)
       if (!response.ok) throw new Error(responseErrorMessage(data) || `Request failed (${response.status}).`)
+      if (activeConnectionId !== requestedId) return
       availableModels = extractModelIds(data)
       if (!availableModels.length) throw new Error('The service returned no models.')
       saveSettings()
     } catch (cause) {
+      if (activeConnectionId !== requestedId) return
       availableModels = []
       modelsError = cause instanceof Error ? cause.message : 'Could not load models.'
     } finally {
-      modelsLoading = false
+      if (activeConnectionId === requestedId) modelsLoading = false
     }
   }
 
@@ -935,9 +985,45 @@
         <section class="settings-card connection" aria-labelledby="connection-title">
           <div class="setting-copy">
             <h2 id="connection-title">API connection</h2>
-            <p>Credentials stay in your browser and are sent only to your Base URL.</p>
+            <p>Create and switch connections. Credentials stay in your browser and are sent only to your Base URL.</p>
           </div>
           <div class="fields">
+            <div class="model-field">
+              <label for="connection-input"><span>Current connection</span></label>
+              <div class="model-input-row">
+                <Select
+                  id="connection-input"
+                  value={activeConnectionId}
+                  options={connections.map((connection): [string, string] => [connection.id, connection.name])}
+                  listLabel="Connections"
+                  listName="connection list"
+                  onchange={switchConnection}
+                />
+                <button
+                  class="profile-action"
+                  type="button"
+                  aria-label="New connection"
+                  title="New connection"
+                  onclick={addConnection}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+                <button
+                  class="profile-action"
+                  type="button"
+                  disabled={connections.length < 2}
+                  aria-label="Delete connection"
+                  title="Delete connection"
+                  onclick={deleteConnection}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/></svg>
+                </button>
+              </div>
+            </div>
+            <label>
+              <span>Name</span>
+              <input bind:value={connectionName} placeholder="Connection name" />
+            </label>
             <div class="field">
               <label for="api-key"><span>API Key</span></label>
               <div class="input-with-action">
