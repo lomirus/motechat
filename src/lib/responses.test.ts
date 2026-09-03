@@ -7,6 +7,7 @@ import {
   extractUsage,
   formatMoney,
   isCurrency,
+  addUsage,
   usageCost,
   usageParts,
   usageRing,
@@ -120,6 +121,18 @@ assert.equal(usageCost(
   { input: 100, output: 50, total: 150, cached: 40, reasoning: 20 },
   { cacheHit: 1, cacheMiss: 2, output: 10 },
 ), 0.00066)
+assert.equal(addUsage(undefined, undefined), undefined)
+assert.deepEqual(addUsage({ input: 100, output: 50, total: 150, cached: 40, reasoning: 20 }, undefined), {
+  input: 100, output: 50, total: 150, cached: 40, reasoning: 20,
+})
+assert.deepEqual(addUsage(
+  { input: 100, output: 50, total: 150, cached: 40, reasoning: 20 },
+  { input: 10, output: 5, total: 15, cached: 3, reasoning: 2 },
+), { input: 110, output: 55, total: 165, cached: 43, reasoning: 22 })
+assert.equal(usageCost(addUsage(
+  { input: 100, output: 50, total: 150, cached: 40, reasoning: 20 },
+  { input: 10, output: 5, total: 15, cached: 3, reasoning: 2 },
+), { cacheHit: 1, cacheMiss: 2, output: 10 }), 0.000727)
 assert.equal(formatMoney(0, 'CNY'), '¥0')
 assert.equal(formatMoney(1.234, 'CNY'), '¥1.23')
 assert.equal(formatMoney(0.01234, 'USD'), '$0.0123')

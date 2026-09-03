@@ -186,6 +186,18 @@ export function isCurrency(value: unknown): value is Currency {
   return currencies.includes(value as Currency)
 }
 
+export function addUsage(a: TokenUsage | undefined, b: TokenUsage | undefined): TokenUsage | undefined {
+  if (!a) return b
+  if (!b) return a
+  return {
+    input: a.input + b.input,
+    output: a.output + b.output,
+    total: a.total + b.total,
+    cached: a.cached + b.cached,
+    reasoning: a.reasoning + b.reasoning,
+  }
+}
+
 export function usageCost(usage: TokenUsage | undefined, prices: ModelPrices): number {
   const cached = Math.min(usage?.input ?? 0, usage?.cached ?? 0)
   const input = (usage?.input ?? 0) - cached

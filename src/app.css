@@ -849,12 +849,17 @@ h1, h2, p {
 }
 
 .context-meter-cost {
+  display: grid;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.context-meter-cost > span {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
 }
 
 .context-meter-cost b {

@@ -9,6 +9,7 @@
     extractUsage,
     formatMoney,
     isCurrency,
+    addUsage,
     usageCost,
     usageParts,
     usageRing,
@@ -63,6 +64,8 @@
   let cacheMissPrice: number | null = null
   let outputPrice: number | null = null
   let tokenUsage: TokenUsage | undefined = undefined
+  let chatUsage: TokenUsage | undefined = undefined
+  let pendingUsage: TokenUsage | undefined = undefined
   let availableModels: string[] = []
   let modelsLoading = false
   let modelsError = ''
@@ -383,6 +386,7 @@
     const ratio = limit ? Math.min(1, used / limit) : 0
     const percent = Math.round(ratio * 100)
     const parts = usageParts(usage)
+    const prices = modelPrices()
     return {
       used,
       limit,
@@ -391,7 +395,8 @@
       parts,
       ring: usageRing(parts, limit, contextRing),
       barFill: limit ? percent : used ? 100 : 0,
-      cost: usageCost(usage, modelPrices()),
+      cost: usageCost(usage, prices),
+      total: usageCost(addUsage(chatUsage, pendingUsage), prices),
     }
   }
 
@@ -442,6 +447,7 @@
     error = ''
     copiedMessage = null
     loading = true
+    pendingUsage = undefined
     await showMessages(nextMessages)
     const requestedAt = performance.now()
 
@@ -478,6 +484,7 @@
         for await (const event of responseDeltas(response.body)) {
           if (event.type === 'usage') {
             tokenUsage = event.usage
+            pendingUsage = event.usage
             if (event.usage.output) {
               countedFromUsage = true
               tokens = event.usage.output
@@ -496,6 +503,7 @@
       } else {
         const data = await readResponseJson(response).catch((): unknown => undefined)
         tokenUsage = extractUsage(data)
+        pendingUsage = tokenUsage
         await showMessages([...nextMessages, {
           role: 'assistant',
           content: extractResponseText(data),
@@ -505,6 +513,8 @@
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Request failed. Please try again.'
     } finally {
+      if (pendingUsage) chatUsage = addUsage(chatUsage, pendingUsage)
+      pendingUsage = undefined
       loading = false
     }
   }
@@ -580,6 +590,8 @@
     pendingImages = []
     error = ''
     tokenUsage = undefined
+    chatUsage = undefined
+    pendingUsage = undefined
     profileMenuOpen = false
     cancelEdit()
   }
@@ -870,8 +882,8 @@
                     {/each}
                   </span>
                   <span class="context-meter-cost">
-                    <span>Cost</span>
-                    <b>{formatMoney(meter.cost, currency)}</b>
+                    <span>Cost<b>{formatMoney(meter.cost, currency)}</b></span>
+                    <span>Total<b>{formatMoney(meter.total, currency)}</b></span>
                   </span>
                 </span>
               </span>
