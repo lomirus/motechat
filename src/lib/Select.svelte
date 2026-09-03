@@ -76,6 +76,8 @@
       type="text"
       readonly
       value={labelFor(value)}
+      onmousedown={(event) => event.preventDefault()}
+      onfocus={(event) => event.currentTarget.setSelectionRange(0, 0)}
       onclick={() => (open = !open)}
       onkeydown={handleKeydown}
     />

@@ -919,17 +919,6 @@
           >
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
           </button>
-          <div class="composer-switch">
-            <label for="switch-connection">Connection</label>
-            <Select
-              id="switch-connection"
-              value={activeConnectionId}
-              options={connections.map((connection): [string, string] => [connection.id, connection.name || 'Untitled'])}
-              listLabel="Connections"
-              listName="connection list"
-              onchange={switchConnection}
-            />
-          </div>
           {#each evaluated.fields.filter((field) => field.options.length) as field (field.id)}
             <div class="composer-switch">
               <label for="switch-{field.id}">{field.name}</label>
