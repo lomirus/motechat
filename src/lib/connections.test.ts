@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { createConnection, nextConnectionName, parseConnections } from './connections.ts'
+import { createConnection, duplicateConnection, nextConnectionName, nextCopyName, parseConnections } from './connections.ts'
 
 assert.equal(nextConnectionName([]), 'Default')
 assert.equal(nextConnectionName(['Default']), 'Connection 2')
@@ -16,6 +16,11 @@ assert.equal(created.currency, 'CNY')
 assert.deepEqual(created.availableModels, [])
 assert.equal(created.reasoningEffort, '')
 assert.equal(createConnection([created]).name, 'Connection 2')
+
+assert.equal(nextCopyName('Work', []), 'Work copy')
+assert.equal(nextCopyName('Work', ['Work copy']), 'Work copy 2')
+assert.equal(nextCopyName('Work', ['Work copy', 'Work copy 2']), 'Work copy 3')
+assert.equal(nextCopyName('  ', ['Connection copy']), 'Connection copy 2')
 
 assert.deepEqual(parseConnections({}), {
   connections: [{
@@ -100,3 +105,9 @@ assert.equal(parseConnections({ connections: [work, home], activeConnectionId: '
 assert.equal(parseConnections({ connections: [{ id: 'a', name: 'A', currency: 'EUR', reasoningEffort: 'nope' }] }).connections[0].currency, 'CNY')
 assert.equal(parseConnections({ connections: [{ id: 'a', name: 'A', contextLength: 0 }] }).connections[0].contextLength, null)
 assert.equal(parseConnections({ connections: [{ id: 'a', name: 'A', cacheHitPrice: -1 }] }).connections[0].cacheHitPrice, null)
+
+const copy = duplicateConnection(work, [work])
+assert.notEqual(copy.id, work.id)
+assert.notEqual(copy.availableModels, work.availableModels)
+assert.equal(copy.name, 'Work copy')
+assert.deepEqual({ ...copy, id: work.id, name: work.name }, work)

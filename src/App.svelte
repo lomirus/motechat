@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import Select from './lib/Select.svelte'
-  import { createConnection, parseConnections, type Connection } from './lib/connections'
+  import { createConnection, duplicateConnection, parseConnections, type Connection } from './lib/connections'
   import {
     activeFields,
     comboKey,
@@ -237,6 +237,16 @@
   function addConnection() {
     persistActiveConnection()
     const connection = createConnection(connections)
+    connections = [...connections, connection]
+    activeConnectionId = connection.id
+    loadActiveConnection()
+    saveSettings()
+  }
+
+  function copyConnection() {
+    persistActiveConnection()
+    const source = connections.find((connection) => connection.id === activeConnectionId) ?? connections[0]
+    const connection = duplicateConnection(source, connections)
     connections = [...connections, connection]
     activeConnectionId = connection.id
     loadActiveConnection()
@@ -1121,6 +1131,15 @@
                   onclick={addConnection}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+                <button
+                  class="profile-action"
+                  type="button"
+                  aria-label="Duplicate connection"
+                  title="Duplicate connection"
+                  onclick={copyConnection}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10v10H9z"/><path d="M5 15V5h10"/></svg>
                 </button>
                 <button
                   class="profile-action"

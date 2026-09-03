@@ -60,6 +60,26 @@ export function createConnection(existing: readonly Connection[]): Connection {
   }
 }
 
+export function nextCopyName(base: string, names: readonly string[]): string {
+  const used = new Set(names)
+  const stem = base.trim() || 'Connection'
+  const copy = `${stem} copy`
+  if (!used.has(copy)) return copy
+  for (let n = 2; ; n++) {
+    const name = `${stem} copy ${n}`
+    if (!used.has(name)) return name
+  }
+}
+
+export function duplicateConnection(source: Connection, existing: readonly Connection[]): Connection {
+  return {
+    ...source,
+    id: crypto.randomUUID(),
+    name: nextCopyName(source.name, existing.map((connection) => connection.name)),
+    availableModels: [...source.availableModels],
+  }
+}
+
 export function parseConnections(stored: Record<string, unknown>): {
   connections: Connection[]
   activeConnectionId: string
