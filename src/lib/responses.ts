@@ -85,22 +85,111 @@ function usageRecord(response: unknown): Record<string, unknown> | undefined {
   return isRecord(usage) ? usage : undefined
 }
 
+function tokenCount(value: unknown): number | undefined {
+  return typeof value === 'number' && value > 0 ? value : undefined
+}
+
+function readCount(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
+}
+
+function nestedRecord(value: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
+  return isRecord(value[key]) ? value[key] : undefined
+}
+
+export type TokenUsage = {
+  input: number
+  output: number
+  total: number
+  cached: number
+  reasoning: number
+}
+
+export const usagePartKeys = ['cached', 'input', 'reasoning', 'output'] as const
+export type UsagePart = typeof usagePartKeys[number]
+
+function firstCount(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    const n = readCount(value)
+    if (n != null) return n
+  }
+}
+
+export function extractInputTokens(response: unknown): number | undefined {
+  const usage = usageRecord(response)
+  return usage ? tokenCount(usage.input_tokens) ?? tokenCount(usage.prompt_tokens) : undefined
+}
+
 export function extractOutputTokens(response: unknown): number | undefined {
   const usage = usageRecord(response)
-  return usage && typeof usage.output_tokens === 'number' && usage.output_tokens > 0
-    ? usage.output_tokens
-    : undefined
+  return usage ? tokenCount(usage.output_tokens) ?? tokenCount(usage.completion_tokens) : undefined
 }
 
 export function extractTotalTokens(response: unknown): number | undefined {
   const usage = usageRecord(response)
   if (!usage) return
-  if (typeof usage.total_tokens === 'number' && usage.total_tokens > 0) return usage.total_tokens
-  const input = typeof usage.input_tokens === 'number' ? usage.input_tokens : undefined
-  const output = typeof usage.output_tokens === 'number' ? usage.output_tokens : undefined
+  const total = tokenCount(usage.total_tokens)
+  if (total) return total
+  const input = firstCount(usage.input_tokens, usage.prompt_tokens)
+  const output = firstCount(usage.output_tokens, usage.completion_tokens)
   if (input == null || output == null) return
-  const total = input + output
-  return total > 0 ? total : undefined
+  const summed = input + output
+  return summed > 0 ? summed : undefined
+}
+
+export function extractUsage(response: unknown): TokenUsage | undefined {
+  const usage = usageRecord(response)
+  if (!usage) return
+  const input = firstCount(usage.input_tokens, usage.prompt_tokens)
+  const output = firstCount(usage.output_tokens, usage.completion_tokens)
+  const total = firstCount(usage.total_tokens)
+    ?? (input != null && output != null && input + output > 0 ? input + output : undefined)
+  if (!input && !output && !total) return
+
+  const resolvedInput = input ?? 0
+  const resolvedOutput = output ?? 0
+  const resolvedTotal = total ?? resolvedInput + resolvedOutput
+  const inputDetails = nestedRecord(usage, 'input_tokens_details') ?? nestedRecord(usage, 'prompt_tokens_details')
+  const outputDetails = nestedRecord(usage, 'output_tokens_details') ?? nestedRecord(usage, 'completion_tokens_details')
+  const cached = Math.min(
+    resolvedInput,
+    firstCount(inputDetails?.cached_tokens, usage.prompt_cache_hit_tokens) ?? 0,
+  )
+  const reasoning = firstCount(outputDetails?.reasoning_tokens) ?? 0
+  return { input: resolvedInput, output: resolvedOutput, total: resolvedTotal, cached, reasoning }
+}
+
+export function usageParts(usage: TokenUsage | undefined): { key: UsagePart; tokens: number }[] {
+  const input = usage?.input ?? 0
+  const output = usage?.output ?? 0
+  const cached = Math.min(input, usage?.cached ?? 0)
+  const reasoning = usage?.reasoning ?? 0
+  const visible = output >= reasoning ? output - reasoning : output
+  return [
+    { key: 'cached', tokens: cached },
+    { key: 'input', tokens: input - cached },
+    { key: 'reasoning', tokens: reasoning },
+    { key: 'output', tokens: visible },
+  ]
+}
+
+export function usageRing(
+  parts: { key: UsagePart; tokens: number }[],
+  limit: number,
+  circumference: number,
+): { key: UsagePart; dash: number; offset: number }[] {
+  if (!limit) return []
+  const ring = []
+  let offset = 0
+  let remaining = circumference
+  for (const part of parts) {
+    if (!part.tokens || remaining <= 0) continue
+    const dash = Math.min(remaining, circumference * (part.tokens / limit))
+    if (dash > 0) ring.push({ key: part.key, dash, offset })
+    offset += dash
+    remaining -= dash
+  }
+  return ring
 }
 
 export function outputSpeed(tokens: number, elapsedMs: number): number | undefined {
@@ -181,11 +270,8 @@ export async function* responseDeltas(body: ReadableStream<Uint8Array>) {
         && typeof payload.delta === 'string') {
         yield { type: 'reasoning' as const, delta: payload.delta }
       }
-      const outputTokens = extractOutputTokens(payload)
-      const totalTokens = extractTotalTokens(payload)
-      if (outputTokens || totalTokens) {
-        yield { type: 'usage' as const, outputTokens: outputTokens ?? 0, totalTokens }
-      }
+      const usage = extractUsage(payload)
+      if (usage) yield { type: 'usage' as const, usage }
       if (payload.type === 'error' || payload.type === 'response.failed') {
         throw new Error(responseErrorMessage(payload) || 'Response failed.')
       }

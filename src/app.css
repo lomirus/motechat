@@ -718,9 +718,134 @@ h1, h2, p {
 }
 
 .context-meter {
+  position: relative;
   flex: 0 0 auto;
   width: 24px;
   height: 24px;
+  --usage-cached: var(--faint);
+  --usage-input: #3d8bf0;
+  --usage-reasoning: #e8b04a;
+  --usage-output: #9b5de5;
+}
+
+.context-meter-tip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: none;
+  width: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.context-meter:hover .context-meter-tip {
+  display: grid;
+  gap: 10px;
+}
+
+.context-meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.context-meter-head strong {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.context-meter-head span {
+  color: var(--faint);
+}
+
+.context-meter-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--border);
+}
+
+.context-meter-fill {
+  display: flex;
+  width: var(--fill);
+  height: 100%;
+}
+
+.context-meter-fill span {
+  min-width: 0;
+}
+
+.context-meter-fill .cached,
+.context-meter .seg.cached {
+  background: var(--usage-cached);
+  stroke: var(--usage-cached);
+}
+
+.context-meter-fill .input,
+.context-meter .seg.input {
+  background: var(--usage-input);
+  stroke: var(--usage-input);
+}
+
+.context-meter-fill .reasoning,
+.context-meter .seg.reasoning {
+  background: var(--usage-reasoning);
+  stroke: var(--usage-reasoning);
+}
+
+.context-meter-fill .output,
+.context-meter .seg.output {
+  background: var(--usage-output);
+  stroke: var(--usage-output);
+}
+
+.context-meter-legend {
+  display: grid;
+  gap: 5px;
+}
+
+.context-meter-legend > span {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-meter-legend i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.context-meter-legend i.cached {
+  background: var(--usage-cached);
+}
+.context-meter-legend i.input {
+  background: var(--usage-input);
+}
+.context-meter-legend i.reasoning {
+  background: var(--usage-reasoning);
+}
+.context-meter-legend i.output {
+  background: var(--usage-output);
+}
+
+.context-meter-legend b {
+  color: var(--text);
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
 }
 
 .context-meter svg {
@@ -739,18 +864,8 @@ h1, h2, p {
   stroke: var(--border-strong);
 }
 
-.context-meter .fill {
-  stroke: var(--text);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 180ms ease, stroke 180ms ease;
-}
-
-.context-meter.warn .fill {
-  stroke: #c48a3a;
-}
-
-.context-meter.alert .fill {
-  stroke: #a45048;
+.context-meter .seg {
+  stroke-linecap: butt;
 }
 
 .send-button {

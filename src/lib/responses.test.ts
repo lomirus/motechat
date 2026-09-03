@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict'
 import {
   extractModelIds,
+  extractInputTokens,
   extractOutputTokens,
   extractTotalTokens,
+  extractUsage,
+  usageParts,
+  usageRing,
   extractResponseReasoning,
   extractResponseText,
   modelsUrl,
@@ -55,6 +59,9 @@ assert.deepEqual(events, [
   { type: 'output_text', delta: 'lo' },
 ])
 
+assert.equal(extractInputTokens({ usage: { input_tokens: 18 } }), 18)
+assert.equal(extractInputTokens({ response: { usage: { input_tokens: 4 } } }), 4)
+assert.equal(extractInputTokens({ usage: { input_tokens: 0 } }), undefined)
 assert.equal(extractOutputTokens({ usage: { output_tokens: 42 } }), 42)
 assert.equal(extractOutputTokens({ response: { usage: { output_tokens: 7 } } }), 7)
 assert.equal(extractOutputTokens({ usage: { output_tokens: 0 } }), undefined)
@@ -62,6 +69,49 @@ assert.equal(extractTotalTokens({ usage: { total_tokens: 120 } }), 120)
 assert.equal(extractTotalTokens({ response: { usage: { input_tokens: 10, output_tokens: 5 } } }), 15)
 assert.equal(extractTotalTokens({ usage: { total_tokens: 0, input_tokens: 0, output_tokens: 0 } }), undefined)
 assert.equal(extractTotalTokens({ usage: { output_tokens: 5 } }), undefined)
+assert.deepEqual(extractUsage({ usage: {
+  input_tokens: 100,
+  input_tokens_details: { cached_tokens: 40 },
+  output_tokens: 50,
+  output_tokens_details: { reasoning_tokens: 20 },
+  total_tokens: 150,
+} }), { input: 100, output: 50, total: 150, cached: 40, reasoning: 20 })
+assert.deepEqual(extractUsage({ usage: {
+  prompt_tokens: 10,
+  prompt_tokens_details: { cached_tokens: 3 },
+  completion_tokens: 5,
+  completion_tokens_details: { reasoning_tokens: 2 },
+} }), { input: 10, output: 5, total: 15, cached: 3, reasoning: 2 })
+assert.deepEqual(extractUsage({ usage: { input_tokens: 5, output_tokens: 9, total_tokens: 14 } }), {
+  input: 5, output: 9, total: 14, cached: 0, reasoning: 0,
+})
+assert.deepEqual(extractUsage({ usage: {
+  input_tokens: 10,
+  input_tokens_details: { cached_tokens: 99 },
+  output_tokens: 4,
+  output_tokens_details: { reasoning_tokens: 99 },
+} }), { input: 10, output: 4, total: 14, cached: 10, reasoning: 99 })
+assert.deepEqual(extractUsage({ usage: { output_tokens: 3, total_tokens: 8 } }), {
+  input: 0, output: 3, total: 8, cached: 0, reasoning: 0,
+})
+assert.deepEqual(usageParts({ input: 100, output: 50, total: 150, cached: 40, reasoning: 20 }), [
+  { key: 'cached', tokens: 40 },
+  { key: 'input', tokens: 60 },
+  { key: 'reasoning', tokens: 20 },
+  { key: 'output', tokens: 30 },
+])
+assert.deepEqual(usageParts({ input: 10, output: 18, total: 69, cached: 0, reasoning: 41 }), [
+  { key: 'cached', tokens: 0 },
+  { key: 'input', tokens: 10 },
+  { key: 'reasoning', tokens: 41 },
+  { key: 'output', tokens: 18 },
+])
+assert.deepEqual(usageRing(usageParts({ input: 50, output: 50, total: 100, cached: 25, reasoning: 0 }), 200, 100), [
+  { key: 'cached', dash: 12.5, offset: 0 },
+  { key: 'input', dash: 12.5, offset: 12.5 },
+  { key: 'output', dash: 25, offset: 25 },
+])
+assert.deepEqual(usageRing(usageParts(undefined), 0, 100), [])
 assert.equal(outputSpeed(50, 2000), 25)
 assert.equal(outputSpeed(0, 1000), undefined)
 assert.equal(isReasoningEffort('high'), true)
@@ -102,7 +152,7 @@ const usageEvents = []
 for await (const event of responseDeltas(usageBody)) usageEvents.push(event)
 assert.deepEqual(usageEvents, [
   { type: 'output_text', delta: 'Hi' },
-  { type: 'usage', outputTokens: 3, totalTokens: 8 },
+  { type: 'usage', usage: { input: 0, output: 3, total: 8, cached: 0, reasoning: 0 } },
 ])
 
 const tailBody = new ReadableStream<Uint8Array>({
@@ -116,7 +166,7 @@ const tailEvents = []
 for await (const event of responseDeltas(tailBody)) tailEvents.push(event)
 assert.deepEqual(tailEvents, [
   { type: 'output_text', delta: 'Hi' },
-  { type: 'usage', outputTokens: 195, totalTokens: 380 },
+  { type: 'usage', usage: { input: 185, output: 195, total: 380, cached: 0, reasoning: 0 } },
 ])
 
 const brokenThenCompleted = new ReadableStream<Uint8Array>({
@@ -131,5 +181,5 @@ const recovered = []
 for await (const event of responseDeltas(brokenThenCompleted)) recovered.push(event)
 assert.deepEqual(recovered, [
   { type: 'output_text', delta: 'Hi' },
-  { type: 'usage', outputTokens: 195, totalTokens: 380 },
+  { type: 'usage', usage: { input: 185, output: 195, total: 380, cached: 0, reasoning: 0 } },
 ])

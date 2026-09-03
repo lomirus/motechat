@@ -6,7 +6,9 @@
     extractModelIds,
     extractResponseReasoning,
     extractResponseText,
-    extractTotalTokens,
+    extractUsage,
+    usageParts,
+    usageRing,
     isRecord,
     modelsUrl,
     outputSpeed,
@@ -20,6 +22,7 @@
     isReasoningEffort,
     reasoningConfig,
     type ReasoningEffort,
+    type TokenUsage,
   } from './lib/responses'
 
   type Theme = 'system' | 'light' | 'dark'
@@ -28,6 +31,12 @@
   const storageKey = 'saga-settings'
   const maxPendingImages = 8
   const contextRing = 2 * Math.PI * 9
+  const usageLabels: Record<string, string> = {
+    cached: 'Cached',
+    input: 'Input',
+    reasoning: 'Reasoning',
+    output: 'Output',
+  }
   const reasoningEffortOptions: [ReasoningEffort | '', string][] = [
     ['', 'Default'],
     ['none', 'None'],
@@ -45,7 +54,7 @@
   let baseUrl = ''
   let model = ''
   let contextLength: number | null = null
-  let usedTokens: number | undefined
+  let tokenUsage: TokenUsage | undefined = undefined
   let availableModels: string[] = []
   let modelsLoading = false
   let modelsError = ''
@@ -334,6 +343,23 @@
     return typeof contextLength === 'number' && contextLength > 0 ? Math.floor(contextLength) : 0
   }
 
+  function contextMeter(usage: TokenUsage | undefined, length: number | null) {
+    const used = usage?.total ?? 0
+    const limit = typeof length === 'number' && length > 0 ? Math.floor(length) : 0
+    const ratio = limit ? Math.min(1, used / limit) : 0
+    const percent = Math.round(ratio * 100)
+    const parts = usageParts(usage)
+    return {
+      used,
+      limit,
+      ratio,
+      percent,
+      parts,
+      ring: usageRing(parts, limit, contextRing),
+      barFill: limit ? percent : used ? 100 : 0,
+    }
+  }
+
   function messageTiming({ tokensPerSecond, timeToFirstToken }: Message) {
     const parts = []
     if (tokensPerSecond) parts.push(`${tokensPerSecond.toFixed(1)} tokens/s`)
@@ -416,11 +442,11 @@
         const assistant = () => ({ role: 'assistant' as const, content: reply, reasoning, tokensPerSecond, timeToFirstToken })
         for await (const event of responseDeltas(response.body)) {
           if (event.type === 'usage') {
-            if (event.outputTokens) {
+            tokenUsage = event.usage
+            if (event.usage.output) {
               countedFromUsage = true
-              tokens = event.outputTokens
+              tokens = event.usage.output
             }
-            if (event.totalTokens) usedTokens = event.totalTokens
           } else {
             if (!startedAt) startedAt = performance.now()
             if (!countedFromUsage) tokens += 1
@@ -439,7 +465,7 @@
         if (!reply) throw new Error('The service returned an empty response.')
       } else {
         const data = await readResponseJson(response).catch((): unknown => undefined)
-        usedTokens = extractTotalTokens(data)
+        tokenUsage = extractUsage(data)
         await showMessages([...nextMessages, {
           role: 'assistant',
           content: extractResponseText(data),
@@ -523,7 +549,7 @@
     prompt = ''
     pendingImages = []
     error = ''
-    usedTokens = undefined
+    tokenUsage = undefined
     profileMenuOpen = false
     cancelEdit()
   }
@@ -763,37 +789,57 @@
           </div>
           <div class="composer-send">
             {#if true}
-              {@const used = usedTokens ?? 0}
-              {@const limit = contextLimit()}
-              {@const ratio = limit ? Math.min(1, used / limit) : 0}
-              {@const percent = Math.round(ratio * 100)}
+              {@const meter = contextMeter(tokenUsage, contextLength)}
               <span
                 class="context-meter"
-                class:warn={ratio >= 0.8}
-                class:alert={ratio >= 0.95}
+                class:warn={meter.ratio >= 0.8}
+                class:alert={meter.ratio >= 0.95}
                 role="meter"
                 aria-label="Context used"
                 aria-valuemin={0}
-                aria-valuemax={limit || undefined}
-                aria-valuenow={used}
-                aria-valuetext={limit ? `${percent}%` : 'Unlimited'}
-                title={limit
-                  ? `${used.toLocaleString()} / ${limit.toLocaleString()} tokens (${percent}%)`
-                  : `${used.toLocaleString()} tokens (unlimited)`}
+                aria-valuemax={meter.limit || undefined}
+                aria-valuenow={meter.used}
+                aria-valuetext={meter.limit ? `${meter.percent}%` : 'Unlimited'}
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <circle class="track" cx="12" cy="12" r="9"></circle>
-                  {#if percent > 0}
+                  {#each meter.ring as seg}
                     <circle
-                      class="fill"
+                      class="seg {seg.key}"
                       cx="12"
                       cy="12"
                       r="9"
-                      stroke-dasharray={contextRing}
-                      stroke-dashoffset={contextRing * (1 - ratio)}
+                      stroke-dasharray="{seg.dash} {contextRing}"
+                      stroke-dashoffset={-seg.offset}
                     ></circle>
-                  {/if}
+                  {/each}
                 </svg>
+                <span class="context-meter-tip">
+                  <span class="context-meter-head">
+                    <strong>{meter.limit ? `${meter.percent}%` : 'Unlimited'}</strong>
+                    <span>{meter.limit
+                      ? `${meter.used.toLocaleString()} / ${meter.limit.toLocaleString()}`
+                      : `${meter.used.toLocaleString()} tokens`}</span>
+                  </span>
+                  <span class="context-meter-bar" style="--fill: {meter.barFill}%">
+                    <span class="context-meter-fill">
+                      {#each meter.parts as part}
+                        {#if part.tokens}
+                          <span class={part.key} style="flex: {part.tokens}"></span>
+                        {/if}
+                      {/each}
+                    </span>
+                  </span>
+                  <span class="context-meter-legend">
+                    {#each meter.parts as part}
+                      <span>
+                        <i class={part.key}></i>
+                        {usageLabels[part.key]}
+                        <b>{part.tokens.toLocaleString()}</b>
+                      </span>
+                    {/each}
+                  </span>
+                </span>
               </span>
             {/if}
             <button class="send-button" type="submit" disabled={(!prompt.trim() && !pendingImages.length) || loading || attaching} aria-label="Send message">
