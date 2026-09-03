@@ -1,20 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import Select from './lib/Select.svelte'
-  import { createConnection, duplicateConnection, parseConnections, type Connection } from './lib/connections'
-  import {
-    activeFields,
-    comboKey,
-    combos,
-    createCollection,
-    createField,
-    createOption,
-    parseCollections,
-    resolveConnectionId,
-    selectedOptionIds,
-    type Collection,
-    type CollectionField,
-  } from './lib/collections'
+  import { configScriptHelp, createConnection, duplicateConnection, evaluateConnection, fieldsScriptHelp, parseConnections, type Connection } from './lib/connections'
   import { createProfile, parseProfiles, type Profile } from './lib/profiles'
   import {
     extractModelIds,
@@ -78,9 +65,6 @@
   let cacheHitPrice: number | null = null
   let cacheMissPrice: number | null = null
   let outputPrice: number | null = null
-  let collections: Collection[] = parseCollections({}, connections.map((connection) => connection.id)).collections
-  let activeCollectionId = collections[0].id
-  $: activeCollection = collections.find((collection) => collection.id === activeCollectionId)
   let tokenUsage: TokenUsage | undefined = undefined
   let chatUsage: TokenUsage | undefined = undefined
   let pendingUsage: TokenUsage | undefined = undefined
@@ -96,6 +80,26 @@
   let systemPrompt = ''
   let showApiKey = false
   let reasoningEffort: ReasoningEffort | '' = ''
+  let fieldsScript = ''
+  let configScript = ''
+  let selected: Record<string, string> = {}
+  $: evaluated = evaluateConnection({
+    id: activeConnectionId,
+    name: connectionName,
+    apiKey,
+    baseUrl,
+    model,
+    contextLength,
+    currency,
+    cacheHitPrice,
+    cacheMissPrice,
+    outputPrice,
+    availableModels,
+    reasoningEffort,
+    fieldsScript,
+    configScript,
+    selected,
+  })
   let prompt = ''
   let pendingImages: string[] = []
   let editImages: string[] = []
@@ -133,10 +137,6 @@
         connections = parsedConnections.connections
         activeConnectionId = parsedConnections.activeConnectionId
         loadActiveConnection()
-        const parsedCollections = parseCollections(stored, [activeConnectionId, ...connections.map((connection) => connection.id)])
-        collections = parsedCollections.collections
-        activeCollectionId = parsedCollections.activeCollectionId
-        applyCollection()
       }
     } catch {
       // Ignore malformed local preferences and keep safe defaults.
@@ -158,14 +158,6 @@
 
   function readPrice(value: unknown): number | null {
     return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
-  }
-
-  function modelPrices() {
-    return {
-      cacheHit: readPrice(cacheHitPrice) ?? 0,
-      cacheMiss: readPrice(cacheMissPrice) ?? 0,
-      output: readPrice(outputPrice) ?? 0,
-    }
   }
 
   function priceUnit() {
@@ -203,6 +195,9 @@
           outputPrice: readPrice(outputPrice),
           availableModels,
           reasoningEffort,
+          fieldsScript,
+          configScript,
+          selected,
         }
       : connection)
   }
@@ -221,6 +216,9 @@
     outputPrice = active.outputPrice
     availableModels = active.availableModels
     reasoningEffort = active.reasoningEffort
+    fieldsScript = active.fieldsScript
+    configScript = active.configScript
+    selected = { ...active.selected }
     modelsLoading = false
     modelsError = ''
     showApiKey = false
@@ -257,76 +255,13 @@
     if (connections.length < 2 || !confirm(`Delete connection "${connectionName}"?`)) return
     const deletedId = activeConnectionId
     connections = connections.filter((connection) => connection.id !== deletedId)
-    collections = collections.map((collection) => ({
-      ...collection,
-      mapping: Object.fromEntries(Object.entries(collection.mapping).filter(([, id]) => id !== deletedId)),
-    }))
     loadActiveConnection()
     saveSettings()
   }
 
-  function switchCollection(id: string) {
-    if (id === activeCollectionId) return
-    activeCollectionId = id
-    applyCollection()
-    saveSettings()
-  }
-
-  function addCollection() {
-    const collection = createCollection(collections)
-    collections = [...collections, collection]
-    activeCollectionId = collection.id
-    saveSettings()
-  }
-
-  function deleteCollection() {
-    if (collections.length < 2 || !activeCollection || !confirm(`Delete collection "${activeCollection.name}"?`)) return
-    collections = collections.filter((collection) => collection.id !== activeCollectionId)
-    activeCollectionId = collections[0].id
-    applyCollection()
-    saveSettings()
-  }
-
-  function editCollection(change: (collection: Collection) => Collection) {
-    collections = collections.map((collection) => collection.id === activeCollectionId ? change(collection) : collection)
-  }
-
-  function editField(fieldId: string, change: (field: CollectionField) => CollectionField) {
-    editCollection((collection) => ({
-      ...collection,
-      fields: collection.fields.map((field) => field.id === fieldId ? change(field) : field),
-    }))
-  }
-
-  function mapCombo(key: string, connectionId: string) {
-    editCollection((collection) => {
-      const mapping = { ...collection.mapping }
-      if (connectionId) mapping[key] = connectionId
-      else delete mapping[key]
-      return { ...collection, mapping }
-    })
-    applyCollection()
-    saveSettings()
-  }
-
   function chooseOption(fieldId: string, optionId: string) {
-    editCollection((collection) => ({ ...collection, selected: { ...collection.selected, [fieldId]: optionId } }))
-    applyCollection()
+    selected = { ...selected, [fieldId]: optionId }
     saveSettings()
-  }
-
-  /** Switches the active connection to whatever the collection's current choices map to. */
-  function applyCollection() {
-    // `$: activeCollection` only refreshes after this handler returns, so look it up directly.
-    const collection = collections.find((collection) => collection.id === activeCollectionId)
-    if (!collection) return
-    const connectionId = resolveConnectionId(collection)
-    if (!connectionId || !connections.some((connection) => connection.id === connectionId)) {
-      error = 'No connection is mapped to this combination yet. Set one in Settings.'
-      return
-    }
-    error = ''
-    switchConnection(connectionId)
   }
 
   function persistActiveProfile() {
@@ -375,8 +310,6 @@
       theme,
       connections,
       activeConnectionId,
-      collections,
-      activeCollectionId,
       profiles,
       activeProfileId,
     }))
@@ -528,13 +461,17 @@
     return typeof contextLength === 'number' && contextLength > 0 ? Math.floor(contextLength) : 0
   }
 
-  function contextMeter(usage: TokenUsage | undefined, length: number | null) {
+  function contextMeter(usage: TokenUsage | undefined, connection: Connection) {
     const used = usage?.total ?? 0
-    const limit = typeof length === 'number' && length > 0 ? Math.floor(length) : 0
+    const limit = typeof connection.contextLength === 'number' && connection.contextLength > 0 ? Math.floor(connection.contextLength) : 0
     const ratio = limit ? Math.min(1, used / limit) : 0
     const percent = Math.round(ratio * 100)
     const parts = usageParts(usage)
-    const prices = modelPrices()
+    const prices = {
+      cacheHit: readPrice(connection.cacheHitPrice) ?? 0,
+      cacheMiss: readPrice(connection.cacheMissPrice) ?? 0,
+      output: readPrice(connection.outputPrice) ?? 0,
+    }
     return {
       used,
       limit,
@@ -558,11 +495,16 @@
   }
 
   function requestReady() {
-    if (!apiKey.trim() || !baseUrl.trim()) {
+    const live = evaluated.effective
+    if (evaluated.configError) {
+      error = evaluated.configError
+      return false
+    }
+    if (!live.apiKey.trim() || !live.baseUrl.trim()) {
       error = 'Add an API Key and Base URL in Settings first.'
       return false
     }
-    if (!model.trim()) {
+    if (!live.model.trim()) {
       error = 'Select a model before sending a message.'
       return false
     }
@@ -603,15 +545,16 @@
     const requestedAt = performance.now()
 
     try {
-      const reasoning = reasoningConfig(reasoningEffort)
-      const response = await fetch(responsesUrl(baseUrl), {
+      const live = evaluated.effective
+      const reasoning = reasoningConfig(live.reasoningEffort)
+      const response = await fetch(responsesUrl(live.baseUrl), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey.trim()}`,
+          Authorization: `Bearer ${live.apiKey.trim()}`,
         },
         body: JSON.stringify({
-          model: model.trim(),
+          model: live.model.trim(),
           input: toResponseInput(nextMessages),
           stream: true,
           ...(systemPrompt.trim() ? { instructions: systemPrompt.trim() } : {}),
@@ -976,36 +919,33 @@
           >
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
           </button>
-          <div class="collection-switch">
-            <label for="switch-collection">Collection</label>
+          <div class="composer-switch">
+            <label for="switch-connection">Connection</label>
             <Select
-              id="switch-collection"
-              value={activeCollectionId}
-              options={collections.map((collection): [string, string] => [collection.id, collection.name || 'Untitled'])}
-              listLabel="Collections"
-              listName="collection list"
-              onchange={switchCollection}
+              id="switch-connection"
+              value={activeConnectionId}
+              options={connections.map((connection): [string, string] => [connection.id, connection.name || 'Untitled'])}
+              listLabel="Connections"
+              listName="connection list"
+              onchange={switchConnection}
             />
           </div>
-          {#if activeCollection}
-            {@const chosen = selectedOptionIds(activeCollection)}
-            {#each activeFields(activeCollection.fields) as field, index (field.id)}
-              <div class="collection-switch">
-                <label for="switch-{field.id}">{field.name}</label>
-                <Select
-                  id="switch-{field.id}"
-                  value={chosen[index]}
-                  options={field.options.map((option): [string, string] => [option.id, option.label || 'Untitled'])}
-                  listLabel={field.name || 'Options'}
-                  listName="{field.name || 'option'} list"
-                  onchange={(optionId) => chooseOption(field.id, optionId)}
-                />
-              </div>
-            {/each}
-          {/if}
+          {#each evaluated.fields.filter((field) => field.options.length) as field (field.id)}
+            <div class="composer-switch">
+              <label for="switch-{field.id}">{field.name}</label>
+              <Select
+                id="switch-{field.id}"
+                value={evaluated.selected[field.id]}
+                options={field.options.map((option): [string, string] => [option.id, option.label || 'Untitled'])}
+                listLabel={field.name || 'Options'}
+                listName="{field.name || 'option'} list"
+                onchange={(optionId) => chooseOption(field.id, optionId)}
+              />
+            </div>
+          {/each}
           <div class="composer-send">
             {#if true}
-              {@const meter = contextMeter(tokenUsage, contextLength)}
+              {@const meter = contextMeter(tokenUsage, evaluated.effective)}
               <span
                 class="context-meter"
                 class:warn={meter.ratio >= 0.8}
@@ -1056,8 +996,8 @@
                     {/each}
                   </span>
                   <span class="context-meter-cost">
-                    <span>Cost<b>{formatMoney(meter.cost, currency)}</b></span>
-                    <span>Total<b>{formatMoney(meter.total, currency)}</b></span>
+                    <span>Cost<b>{formatMoney(meter.cost, evaluated.effective.currency)}</b></span>
+                    <span>Total<b>{formatMoney(meter.total, evaluated.effective.currency)}</b></span>
                   </span>
                 </span>
               </span>
@@ -1068,8 +1008,8 @@
           </div>
         </div>
       </form>
-      {#if error}
-        <p class="composer-error" role="alert">{error} {#if !apiKey.trim() || !baseUrl.trim()}<button type="button" onclick={() => (page = 'settings')}>Open Settings</button>{/if}</p>
+      {#if error || evaluated.fieldsError || evaluated.configError}
+        <p class="composer-error" role="alert">{error || evaluated.fieldsError || evaluated.configError} {#if evaluated.fieldsError || evaluated.configError || !evaluated.effective.apiKey.trim() || !evaluated.effective.baseUrl.trim()}<button type="button" onclick={() => (page = 'settings')}>Open Settings</button>{/if}</p>
       {/if}
     </div>
   {:else}
@@ -1262,158 +1202,56 @@
                 <span class="field-suffix">{priceUnit()}</span>
               </div>
             </label>
-          </div>
-        </section>
-
-        <section class="settings-card connection" aria-labelledby="collection-title">
-          <div class="setting-copy">
-            <h2 id="collection-title">Collections</h2>
-            <p>A collection is always active. Map each combination of field options to a connection; with no fields, the collection still maps to one.</p>
-          </div>
-          <div class="fields">
             <div class="model-field">
-              <label for="collection-input"><span>Current collection</span></label>
-              <div class="model-input-row">
-                <Select
-                  id="collection-input"
-                  value={activeCollectionId}
-                  options={collections.map((collection): [string, string] => [collection.id, collection.name])}
-                  listLabel="Collections"
-                  listName="collection list"
-                  onchange={switchCollection}
-                />
-                <button
-                  class="profile-action"
-                  type="button"
-                  aria-label="New collection"
-                  title="New collection"
-                  onclick={addCollection}
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                </button>
-                <button
-                  class="profile-action"
-                  type="button"
-                  disabled={collections.length < 2}
-                  aria-label="Delete collection"
-                  title="Delete collection"
-                  onclick={deleteCollection}
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/></svg>
-                </button>
-              </div>
+              <span class="field-label">
+                <label for="fields-script">Fields</label>
+                <span class="info">
+                  <button type="button" aria-label="Fields script types">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/></svg>
+                  </button>
+                  <pre class="info-tip" role="tooltip">{fieldsScriptHelp}</pre>
+                </span>
+              </span>
+              <textarea
+                id="fields-script"
+                class="code"
+                bind:value={fieldsScript}
+                spellcheck="false"
+                wrap="off"
+                autocomplete="off"
+                placeholder={"return [\n  { id: 'tier', name: 'Tier', options: [\n    { id: 'fast', label: 'Fast' },\n    { id: 'expert', label: 'Expert' },\n  ]},\n]"}
+              ></textarea>
+              {#if evaluated.fieldsError}
+                <small class="field-error" role="alert">{evaluated.fieldsError}</small>
+              {:else}
+                <small>Composer switches. Omit <code>id</code> to use name/label; an option may be a string. Leave empty for none.</small>
+              {/if}
             </div>
-            {#if activeCollection}
-              <label>
-                <span>Name</span>
-                <input
-                  value={activeCollection.name}
-                  placeholder="Collection name"
-                  oninput={(event) => editCollection((collection) => ({ ...collection, name: event.currentTarget.value }))}
-                />
-              </label>
-              <div class="model-field">
-                <span class="field-label">Fields</span>
-                {#if activeCollection.fields.length}
-                  <div class="collection-fields">
-                    {#each activeCollection.fields as field (field.id)}
-                      <div class="collection-field">
-                        <div class="model-input-row">
-                          <input
-                            value={field.name}
-                            placeholder="Field name"
-                            aria-label="Field name"
-                            oninput={(event) => editField(field.id, (current) => ({ ...current, name: event.currentTarget.value }))}
-                          />
-                          <button
-                            class="profile-action"
-                            type="button"
-                            aria-label="Delete field"
-                            title="Delete field"
-                            onclick={() => {
-                              editCollection((collection) => ({ ...collection, fields: collection.fields.filter((current) => current.id !== field.id) }))
-                              saveSettings()
-                            }}
-                          >
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/></svg>
-                          </button>
-                        </div>
-                        <div class="collection-options">
-                          {#each field.options as option (option.id)}
-                            <div class="input-with-action">
-                              <input
-                                value={option.label}
-                                placeholder="Option"
-                                aria-label="Option"
-                                oninput={(event) => editField(field.id, (current) => ({
-                                  ...current,
-                                  options: current.options.map((item) => item.id === option.id ? { ...item, label: event.currentTarget.value } : item),
-                                }))}
-                              />
-                              <button
-                                type="button"
-                                aria-label="Remove option"
-                                title="Remove option"
-                                onclick={() => {
-                                  editField(field.id, (current) => ({ ...current, options: current.options.filter((item) => item.id !== option.id) }))
-                                  saveSettings()
-                                }}
-                              >
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                              </button>
-                            </div>
-                          {/each}
-                          <button
-                            class="profile-action"
-                            type="button"
-                            aria-label="Add option"
-                            title="Add option"
-                            onclick={() => {
-                              editField(field.id, (current) => ({ ...current, options: [...current.options, createOption()] }))
-                              saveSettings()
-                            }}
-                          >
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                          </button>
-                        </div>
-                      </div>
-                    {/each}
-                  </div>
-                {/if}
-                <button
-                  class="add-field"
-                  type="button"
-                  onclick={() => {
-                    editCollection((collection) => ({ ...collection, fields: [...collection.fields, createField()] }))
-                    saveSettings()
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                  Add field
-                </button>
-                <small>Each field becomes a switch in the composer; its options are the choices.</small>
-              </div>
-              <div class="model-field">
-                <span class="field-label">Mapping</span>
-                <div class="collection-mapping">
-                  {#each combos(activeCollection.fields) as combo (comboKey(combo.map((option) => option.id)))}
-                    {@const key = comboKey(combo.map((option) => option.id))}
-                    <div class="collection-combo">
-                      <label for="combo-{key}">{combo.length ? combo.map((option) => option.label || 'Untitled').join(' · ') : 'Connection'}</label>
-                      <Select
-                        id="combo-{key}"
-                        value={activeCollection.mapping[key] ?? ''}
-                        options={[['', 'Not mapped'], ...connections.map((connection): [string, string] => [connection.id, connection.name])]}
-                        listLabel="Connections"
-                        listName="connection list"
-                        onchange={(connectionId) => mapCombo(key, connectionId)}
-                      />
-                    </div>
-                  {/each}
-                </div>
-                <small>Pick the connection each combination should use.</small>
-              </div>
-            {/if}
+            <div class="model-field">
+              <span class="field-label">
+                <label for="config-script">Config</label>
+                <span class="info">
+                  <button type="button" aria-label="Config script types">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/></svg>
+                  </button>
+                  <pre class="info-tip" role="tooltip">{configScriptHelp}</pre>
+                </span>
+              </span>
+              <textarea
+                id="config-script"
+                class="code"
+                bind:value={configScript}
+                spellcheck="false"
+                wrap="off"
+                autocomplete="off"
+                placeholder={"return {\n  ...connection,\n  model: selected.tier === 'expert' ? 'gpt-5.6-sol' : 'gpt-5.6-luna',\n}"}
+              ></textarea>
+              {#if evaluated.configError}
+                <small class="field-error" role="alert">{evaluated.configError}</small>
+              {:else}
+                <small>Returned keys overlay the defaults above for requests. Leave empty to use the defaults.</small>
+              {/if}
+            </div>
           </div>
         </section>
 

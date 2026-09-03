@@ -685,7 +685,7 @@ h1, h2, p {
   width: 18px;
 }
 
-.collection-switch {
+.composer-switch {
   flex: 0 1 auto;
   min-width: 0;
   display: flex;
@@ -698,14 +698,14 @@ h1, h2, p {
   color: var(--muted);
   font-size: 11px;
 }
-.collection-switch > label {
+.composer-switch > label {
   font-weight: 650;
   white-space: nowrap;
 }
-.collection-switch > label:empty {
+.composer-switch > label:empty {
   display: none;
 }
-.collection-switch .model-select input {
+.composer-switch .model-select input {
   width: 110px;
   height: 30px;
   padding: 0 26px 0 0;
@@ -718,7 +718,7 @@ h1, h2, p {
   text-overflow: ellipsis;
   cursor: pointer;
 }
-.collection-switch .model-select-toggle {
+.composer-switch .model-select-toggle {
   position: absolute;
   inset: 0 0 auto auto;
   width: 26px;
@@ -731,17 +731,17 @@ h1, h2, p {
   color: var(--muted);
   cursor: pointer;
 }
-.collection-switch .model-select-toggle:hover {
+.composer-switch .model-select-toggle:hover {
   color: var(--text);
 }
-.collection-switch .model-select-toggle:disabled {
+.composer-switch .model-select-toggle:disabled {
   opacity: .35;
   cursor: default;
 }
-.collection-switch .model-select-toggle svg {
+.composer-switch .model-select-toggle svg {
   width: 14px;
 }
-.collection-switch .model-options {
+.composer-switch .model-options {
   top: auto;
   right: auto;
   bottom: calc(100% + 6px);
@@ -750,7 +750,7 @@ h1, h2, p {
   min-width: 100%;
   max-width: 240px;
 }
-.collection-switch .model-options button {
+.composer-switch .model-options button {
   width: 100%;
   min-height: 34px;
   padding: 7px 10px;
@@ -763,9 +763,9 @@ h1, h2, p {
   white-space: nowrap;
   cursor: pointer;
 }
-.collection-switch .model-options button:hover,
-.collection-switch .model-options button:focus-visible,
-.collection-switch .model-options button.selected {
+.composer-switch .model-options button:hover,
+.composer-switch .model-options button:focus-visible,
+.composer-switch .model-options button.selected {
   background: var(--surface-soft);
   outline: 0;
 }
@@ -1138,10 +1138,16 @@ h1, h2, p {
 }
 .fields .field-label,
 .fields label > span {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 8px;
   font-size: 12.5px;
   font-weight: 620;
+}
+.fields .field-label > label {
+  margin: 0;
+  font: inherit;
 }
 
 .fields input,
@@ -1384,70 +1390,60 @@ h1, h2, p {
   color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
-.collection-fields {
-  display: grid;
-  gap: 12px;
-}
-.collection-field {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  background: var(--surface-soft);
-}
-.collection-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-}
-.collection-options .input-with-action {
-  min-width: 0;
-}
-.collection-options .profile-action {
-  width: 100%;
-}
-.fields .add-field {
+.fields .info {
+  position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  height: 40px;
-  padding: 0 14px;
-  border: 1px dashed var(--border-strong);
-  border-radius: 11px;
+}
+.fields .info > button {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
   background: transparent;
+  color: var(--faint);
+  cursor: help;
+}
+.fields .info > button:hover,
+.fields .info:focus-within > button {
   color: var(--muted);
+}
+.fields .info svg {
+  width: 15px;
+}
+.fields .info-tip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  display: none;
+  width: 340px;
+  margin: 0;
+  padding: 12px 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  pointer-events: none;
+  z-index: 3;
+}
+.fields .info:hover .info-tip,
+.fields .info:focus-within .info-tip {
+  display: block;
+}
+.fields textarea.code {
+  min-height: 180px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12.5px;
-  cursor: pointer;
-}
-.collection-fields + .add-field {
-  margin-top: 10px;
-}
-.fields .add-field:hover {
-  background: var(--surface-soft);
-  color: var(--text);
-}
-.fields .add-field svg {
-  width: 16px;
-}
-.collection-mapping {
-  display: grid;
-  gap: 8px;
-}
-.collection-combo {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-  gap: 10px;
-  align-items: center;
-}
-.collection-combo > label {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text);
-  font-size: 12.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.45;
+  white-space: pre;
+  overflow-x: auto;
 }
 @keyframes enter {
   from {
