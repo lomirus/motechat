@@ -7,6 +7,9 @@
     extractResponseReasoning,
     extractResponseText,
     extractUsage,
+    formatMoney,
+    isCurrency,
+    usageCost,
     usageParts,
     usageRing,
     isRecord,
@@ -21,6 +24,7 @@
     imageFileError,
     isReasoningEffort,
     reasoningConfig,
+    type Currency,
     type ReasoningEffort,
     type TokenUsage,
   } from './lib/responses'
@@ -54,6 +58,10 @@
   let baseUrl = ''
   let model = ''
   let contextLength: number | null = null
+  let currency: Currency = 'CNY'
+  let cacheHitPrice: number | null = null
+  let cacheMissPrice: number | null = null
+  let outputPrice: number | null = null
   let tokenUsage: TokenUsage | undefined = undefined
   let availableModels: string[] = []
   let modelsLoading = false
@@ -102,6 +110,10 @@
         contextLength = typeof stored.contextLength === 'number' && stored.contextLength > 0
           ? Math.floor(stored.contextLength)
           : null
+        currency = isCurrency(stored.currency) ? stored.currency : 'CNY'
+        cacheHitPrice = readPrice(stored.cacheHitPrice)
+        cacheMissPrice = readPrice(stored.cacheMissPrice)
+        outputPrice = readPrice(stored.outputPrice)
         availableModels = Array.isArray(stored.availableModels)
           ? stored.availableModels.filter((value): value is string => typeof value === 'string')
           : []
@@ -129,6 +141,22 @@
     }
   })
 
+  function readPrice(value: unknown): number | null {
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+  }
+
+  function modelPrices() {
+    return {
+      cacheHit: readPrice(cacheHitPrice) ?? 0,
+      cacheMiss: readPrice(cacheMissPrice) ?? 0,
+      output: readPrice(outputPrice) ?? 0,
+    }
+  }
+
+  function priceUnit() {
+    return currency === 'USD' ? '$ / 1M tokens' : '¥ / 1M tokens'
+  }
+
   function applyTheme(value: Theme) {
     if (value === 'system') delete document.documentElement.dataset.theme
     else document.documentElement.dataset.theme = value
@@ -137,6 +165,11 @@
   function chooseTheme(value: Theme) {
     theme = value
     applyTheme(value)
+    saveSettings()
+  }
+
+  function chooseCurrency(value: Currency) {
+    currency = value
     saveSettings()
   }
 
@@ -187,6 +220,10 @@
       baseUrl: baseUrl.trim().replace(/\/+$/, ''),
       model: model.trim(),
       contextLength: typeof contextLength === 'number' && contextLength > 0 ? Math.floor(contextLength) : 0,
+      currency,
+      cacheHitPrice: readPrice(cacheHitPrice) ?? 0,
+      cacheMissPrice: readPrice(cacheMissPrice) ?? 0,
+      outputPrice: readPrice(outputPrice) ?? 0,
       availableModels,
       profiles,
       activeProfileId,
@@ -354,6 +391,7 @@
       parts,
       ring: usageRing(parts, limit, contextRing),
       barFill: limit ? percent : used ? 100 : 0,
+      cost: usageCost(usage, modelPrices()),
     }
   }
 
@@ -831,6 +869,10 @@
                       </span>
                     {/each}
                   </span>
+                  <span class="context-meter-cost">
+                    <span>Cost</span>
+                    <b>{formatMoney(meter.cost, currency)}</b>
+                  </span>
                 </span>
               </span>
             {/if}
@@ -960,6 +1002,35 @@
               />
               <small>Sent as <code>reasoning.effort</code>. Supported values vary by model.</small>
             </div>
+            <div class="model-field">
+              <span class="field-label" id="currency-label">Currency</span>
+              <div class="theme-picker pair" data-currency={currency} role="group" aria-labelledby="currency-label">
+                <button class:active={currency === 'CNY'} type="button" onclick={() => chooseCurrency('CNY')}>CNY ¥</button>
+                <button class:active={currency === 'USD'} type="button" onclick={() => chooseCurrency('USD')}>USD $</button>
+              </div>
+              <small>Used for model prices and the chat cost estimate.</small>
+            </div>
+            <label>
+              <span>Cache hit input</span>
+              <div class="input-with-action suffix">
+                <input id="cache-hit-price" type="number" min="0" step="any" bind:value={cacheHitPrice} placeholder="0" />
+                <span class="field-suffix">{priceUnit()}</span>
+              </div>
+            </label>
+            <label>
+              <span>Cache miss input</span>
+              <div class="input-with-action suffix">
+                <input id="cache-miss-price" type="number" min="0" step="any" bind:value={cacheMissPrice} placeholder="0" />
+                <span class="field-suffix">{priceUnit()}</span>
+              </div>
+            </label>
+            <label>
+              <span>Output</span>
+              <div class="input-with-action suffix">
+                <input id="output-price" type="number" min="0" step="any" bind:value={outputPrice} placeholder="0" />
+                <span class="field-suffix">{priceUnit()}</span>
+              </div>
+            </label>
           </div>
         </section>
 

@@ -5,6 +5,9 @@ import {
   extractOutputTokens,
   extractTotalTokens,
   extractUsage,
+  formatMoney,
+  isCurrency,
+  usageCost,
   usageParts,
   usageRing,
   extractResponseReasoning,
@@ -112,6 +115,17 @@ assert.deepEqual(usageRing(usageParts({ input: 50, output: 50, total: 100, cache
   { key: 'output', dash: 25, offset: 25 },
 ])
 assert.deepEqual(usageRing(usageParts(undefined), 0, 100), [])
+assert.equal(usageCost(undefined, { cacheHit: 1, cacheMiss: 2, output: 10 }), 0)
+assert.equal(usageCost(
+  { input: 100, output: 50, total: 150, cached: 40, reasoning: 20 },
+  { cacheHit: 1, cacheMiss: 2, output: 10 },
+), 0.00066)
+assert.equal(formatMoney(0, 'CNY'), '¥0')
+assert.equal(formatMoney(1.234, 'CNY'), '¥1.23')
+assert.equal(formatMoney(0.01234, 'USD'), '$0.0123')
+assert.equal(formatMoney(0.0001234, 'USD'), '$0.000123')
+assert.equal(isCurrency('CNY'), true)
+assert.equal(isCurrency('EUR'), false)
 assert.equal(outputSpeed(50, 2000), 25)
 assert.equal(outputSpeed(0, 1000), undefined)
 assert.equal(isReasoningEffort('high'), true)

@@ -848,6 +848,21 @@ h1, h2, p {
   font-variant-numeric: tabular-nums;
 }
 
+.context-meter-cost {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.context-meter-cost b {
+  color: var(--text);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
 .context-meter svg {
   display: block;
   width: 100%;
@@ -1019,6 +1034,36 @@ h1, h2, p {
 .theme-picker svg {
   width: 16px;
 }
+.theme-picker.pair {
+  position: relative;
+  grid-template-columns: 1fr 1fr;
+}
+.theme-picker.pair::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 5px;
+  width: calc(50% - 8.5px);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 5%);
+  pointer-events: none;
+  transition: transform 220ms cubic-bezier(.22, 1, .36, 1);
+}
+.theme-picker.pair[data-currency='USD']::before {
+  transform: translateX(calc(100% + 7px));
+}
+.theme-picker.pair button {
+  z-index: 1;
+  transition: color 180ms ease;
+}
+.theme-picker.pair button.active {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
 .connection {
   align-items: start;
 }
@@ -1026,6 +1071,7 @@ h1, h2, p {
   display: grid;
   gap: 21px;
 }
+.fields .field-label,
 .fields label > span {
   display: block;
   margin-bottom: 8px;
@@ -1088,6 +1134,23 @@ h1, h2, p {
 .input-with-action svg {
   display: block;
   width: 17px;
+}
+.input-with-action.suffix input {
+  padding-right: 108px;
+  appearance: textfield;
+}
+.input-with-action.suffix input::-webkit-outer-spin-button,
+.input-with-action.suffix input::-webkit-inner-spin-button {
+  appearance: none;
+}
+.input-with-action .field-suffix {
+  position: absolute;
+  inset: 0 13px 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--faint);
+  font-size: 12px;
+  pointer-events: none;
 }
 .model-input-row {
   display: flex;
@@ -1342,6 +1405,10 @@ h1, h2, p {
     flex-direction: column;
     gap: 4px;
     min-height: 58px;
+  }
+  .theme-picker.pair button {
+    flex-direction: row;
+    min-height: 42px;
   }
 }
 

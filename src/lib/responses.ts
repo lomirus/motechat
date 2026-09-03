@@ -173,6 +173,33 @@ export function usageParts(usage: TokenUsage | undefined): { key: UsagePart; tok
   ]
 }
 
+export const currencies = ['CNY', 'USD'] as const
+export type Currency = typeof currencies[number]
+
+export type ModelPrices = {
+  cacheHit: number
+  cacheMiss: number
+  output: number
+}
+
+export function isCurrency(value: unknown): value is Currency {
+  return currencies.includes(value as Currency)
+}
+
+export function usageCost(usage: TokenUsage | undefined, prices: ModelPrices): number {
+  const cached = Math.min(usage?.input ?? 0, usage?.cached ?? 0)
+  const input = (usage?.input ?? 0) - cached
+  const output = usage?.output ?? 0
+  return (cached * prices.cacheHit + input * prices.cacheMiss + output * prices.output) / 1_000_000
+}
+
+export function formatMoney(amount: number, currency: Currency): string {
+  const symbol = currency === 'USD' ? '$' : '¥'
+  if (!Number.isFinite(amount) || amount <= 0) return `${symbol}0`
+  const digits = amount >= 1 ? 2 : amount >= 0.01 ? 4 : 6
+  return `${symbol}${amount.toFixed(digits)}`
+}
+
 export function usageRing(
   parts: { key: UsagePart; tokens: number }[],
   limit: number,
