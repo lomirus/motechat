@@ -75,16 +75,32 @@ export function extractResponseReasoning(response: unknown): string {
     .join('\n')
 }
 
-export function extractOutputTokens(response: unknown): number | undefined {
+function usageRecord(response: unknown): Record<string, unknown> | undefined {
   if (!isRecord(response)) return
   const usage = isRecord(response.usage)
     ? response.usage
     : isRecord(response.response) && isRecord(response.response.usage)
       ? response.response.usage
       : undefined
-  return isRecord(usage) && typeof usage.output_tokens === 'number' && usage.output_tokens > 0
+  return isRecord(usage) ? usage : undefined
+}
+
+export function extractOutputTokens(response: unknown): number | undefined {
+  const usage = usageRecord(response)
+  return usage && typeof usage.output_tokens === 'number' && usage.output_tokens > 0
     ? usage.output_tokens
     : undefined
+}
+
+export function extractTotalTokens(response: unknown): number | undefined {
+  const usage = usageRecord(response)
+  if (!usage) return
+  if (typeof usage.total_tokens === 'number' && usage.total_tokens > 0) return usage.total_tokens
+  const input = typeof usage.input_tokens === 'number' ? usage.input_tokens : undefined
+  const output = typeof usage.output_tokens === 'number' ? usage.output_tokens : undefined
+  if (input == null || output == null) return
+  const total = input + output
+  return total > 0 ? total : undefined
 }
 
 export function outputSpeed(tokens: number, elapsedMs: number): number | undefined {
@@ -140,6 +156,7 @@ export async function* responseDeltas(body: ReadableStream<Uint8Array>) {
 
     const events = buffer.replace(/\r\n/g, '\n').split('\n\n')
     buffer = events.pop() || ''
+    if (done && buffer.trim()) events.push(buffer)
 
     for (const event of events) {
       const data = event
@@ -149,7 +166,12 @@ export async function* responseDeltas(body: ReadableStream<Uint8Array>) {
         .join('\n')
       if (!data || data === '[DONE]') continue
 
-      const payload = parseJson(data)
+      let payload: unknown
+      try {
+        payload = parseJson(data)
+      } catch {
+        continue
+      }
       if (!isRecord(payload)) continue
       if (payload.type === 'response.output_text.delta' && typeof payload.delta === 'string') {
         yield { type: 'output_text' as const, delta: payload.delta }
@@ -160,7 +182,10 @@ export async function* responseDeltas(body: ReadableStream<Uint8Array>) {
         yield { type: 'reasoning' as const, delta: payload.delta }
       }
       const outputTokens = extractOutputTokens(payload)
-      if (outputTokens) yield { type: 'usage' as const, outputTokens }
+      const totalTokens = extractTotalTokens(payload)
+      if (outputTokens || totalTokens) {
+        yield { type: 'usage' as const, outputTokens: outputTokens ?? 0, totalTokens }
+      }
       if (payload.type === 'error' || payload.type === 'response.failed') {
         throw new Error(responseErrorMessage(payload) || 'Response failed.')
       }

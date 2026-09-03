@@ -710,8 +710,50 @@ h1, h2, p {
   white-space: nowrap;
 }
 
-.send-button {
+.composer-send {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-left: auto;
+}
+
+.context-meter {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+}
+
+.context-meter svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.context-meter circle {
+  fill: none;
+  stroke-width: 2.6;
+}
+
+.context-meter .track {
+  stroke: var(--border-strong);
+}
+
+.context-meter .fill {
+  stroke: var(--text);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 180ms ease, stroke 180ms ease;
+}
+
+.context-meter.warn .fill {
+  stroke: #c48a3a;
+}
+
+.context-meter.alert .fill {
+  stroke: #a45048;
+}
+
+.send-button {
   width: 34px;
   height: 34px;
   display: grid;

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import {
   extractModelIds,
   extractOutputTokens,
+  extractTotalTokens,
   extractResponseReasoning,
   extractResponseText,
   modelsUrl,
@@ -57,6 +58,10 @@ assert.deepEqual(events, [
 assert.equal(extractOutputTokens({ usage: { output_tokens: 42 } }), 42)
 assert.equal(extractOutputTokens({ response: { usage: { output_tokens: 7 } } }), 7)
 assert.equal(extractOutputTokens({ usage: { output_tokens: 0 } }), undefined)
+assert.equal(extractTotalTokens({ usage: { total_tokens: 120 } }), 120)
+assert.equal(extractTotalTokens({ response: { usage: { input_tokens: 10, output_tokens: 5 } } }), 15)
+assert.equal(extractTotalTokens({ usage: { total_tokens: 0, input_tokens: 0, output_tokens: 0 } }), undefined)
+assert.equal(extractTotalTokens({ usage: { output_tokens: 5 } }), undefined)
 assert.equal(outputSpeed(50, 2000), 25)
 assert.equal(outputSpeed(0, 1000), undefined)
 assert.equal(isReasoningEffort('high'), true)
@@ -89,7 +94,7 @@ assert.deepEqual(toResponseInput([
 const usageBody = new ReadableStream<Uint8Array>({
   start(controller) {
     controller.enqueue(encoder.encode('data: {"type":"response.output_text.delta","delta":"Hi"}\n\n'))
-    controller.enqueue(encoder.encode('data: {"type":"response.completed","response":{"usage":{"output_tokens":3}}}\n\n'))
+    controller.enqueue(encoder.encode('data: {"type":"response.completed","response":{"usage":{"output_tokens":3,"total_tokens":8}}}\n\n'))
     controller.close()
   },
 })
@@ -97,5 +102,34 @@ const usageEvents = []
 for await (const event of responseDeltas(usageBody)) usageEvents.push(event)
 assert.deepEqual(usageEvents, [
   { type: 'output_text', delta: 'Hi' },
-  { type: 'usage', outputTokens: 3 },
+  { type: 'usage', outputTokens: 3, totalTokens: 8 },
+])
+
+const tailBody = new ReadableStream<Uint8Array>({
+  start(controller) {
+    controller.enqueue(encoder.encode('data: {"type":"response.output_text.delta","delta":"Hi"}\n\n'))
+    controller.enqueue(encoder.encode('event: response.completed\ndata: {"type":"response.completed","response":{"usage":{"input_tokens":185,"output_tokens":195,"total_tokens":380}}}'))
+    controller.close()
+  },
+})
+const tailEvents = []
+for await (const event of responseDeltas(tailBody)) tailEvents.push(event)
+assert.deepEqual(tailEvents, [
+  { type: 'output_text', delta: 'Hi' },
+  { type: 'usage', outputTokens: 195, totalTokens: 380 },
+])
+
+const brokenThenCompleted = new ReadableStream<Uint8Array>({
+  start(controller) {
+    controller.enqueue(encoder.encode('data: {"type":"response.output_text.delta","delta":"Hi"}\n\n'))
+    controller.enqueue(encoder.encode('data: not-json\n\n'))
+    controller.enqueue(encoder.encode('data: {"type":"response.completed","response":{"usage":{"input_tokens":185,"output_tokens":195,"total_tokens":380}}}\n\n'))
+    controller.close()
+  },
+})
+const recovered = []
+for await (const event of responseDeltas(brokenThenCompleted)) recovered.push(event)
+assert.deepEqual(recovered, [
+  { type: 'output_text', delta: 'Hi' },
+  { type: 'usage', outputTokens: 195, totalTokens: 380 },
 ])

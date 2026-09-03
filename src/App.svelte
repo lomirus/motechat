@@ -6,6 +6,7 @@
     extractModelIds,
     extractResponseReasoning,
     extractResponseText,
+    extractTotalTokens,
     isRecord,
     modelsUrl,
     outputSpeed,
@@ -26,6 +27,7 @@
 
   const storageKey = 'saga-settings'
   const maxPendingImages = 8
+  const contextRing = 2 * Math.PI * 9
   const reasoningEffortOptions: [ReasoningEffort | '', string][] = [
     ['', 'Default'],
     ['none', 'None'],
@@ -42,6 +44,8 @@
   let apiKey = ''
   let baseUrl = ''
   let model = ''
+  let contextLength: number | null = null
+  let usedTokens: number | undefined
   let availableModels: string[] = []
   let modelsLoading = false
   let modelsError = ''
@@ -87,6 +91,9 @@
         apiKey = typeof stored.apiKey === 'string' ? stored.apiKey : ''
         baseUrl = typeof stored.baseUrl === 'string' ? stored.baseUrl : baseUrl
         model = typeof stored.model === 'string' ? stored.model : ''
+        contextLength = typeof stored.contextLength === 'number' && stored.contextLength > 0
+          ? Math.floor(stored.contextLength)
+          : null
         availableModels = Array.isArray(stored.availableModels)
           ? stored.availableModels.filter((value): value is string => typeof value === 'string')
           : []
@@ -172,6 +179,7 @@
       apiKey: apiKey.trim(),
       baseUrl: baseUrl.trim().replace(/\/+$/, ''),
       model: model.trim(),
+      contextLength: typeof contextLength === 'number' && contextLength > 0 ? Math.floor(contextLength) : 0,
       availableModels,
       profiles,
       activeProfileId,
@@ -322,6 +330,10 @@
     if (wasAtBottom) messageEnd?.scrollIntoView()
   }
 
+  function contextLimit() {
+    return typeof contextLength === 'number' && contextLength > 0 ? Math.floor(contextLength) : 0
+  }
+
   function messageTiming({ tokensPerSecond, timeToFirstToken }: Message) {
     const parts = []
     if (tokensPerSecond) parts.push(`${tokensPerSecond.toFixed(1)} tokens/s`)
@@ -404,8 +416,11 @@
         const assistant = () => ({ role: 'assistant' as const, content: reply, reasoning, tokensPerSecond, timeToFirstToken })
         for await (const event of responseDeltas(response.body)) {
           if (event.type === 'usage') {
-            countedFromUsage = true
-            tokens = event.outputTokens
+            if (event.outputTokens) {
+              countedFromUsage = true
+              tokens = event.outputTokens
+            }
+            if (event.totalTokens) usedTokens = event.totalTokens
           } else {
             if (!startedAt) startedAt = performance.now()
             if (!countedFromUsage) tokens += 1
@@ -424,6 +439,7 @@
         if (!reply) throw new Error('The service returned an empty response.')
       } else {
         const data = await readResponseJson(response).catch((): unknown => undefined)
+        usedTokens = extractTotalTokens(data)
         await showMessages([...nextMessages, {
           role: 'assistant',
           content: extractResponseText(data),
@@ -507,6 +523,7 @@
     prompt = ''
     pendingImages = []
     error = ''
+    usedTokens = undefined
     profileMenuOpen = false
     cancelEdit()
   }
@@ -744,9 +761,45 @@
             <span>Model</span>
             <strong title={model.trim() || 'Not selected'}>{model.trim() || 'Not selected'}</strong>
           </div>
-          <button class="send-button" type="submit" disabled={(!prompt.trim() && !pendingImages.length) || loading || attaching} aria-label="Send message">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19V5"/><path d="m6 11 6-6 6 6"/></svg>
-          </button>
+          <div class="composer-send">
+            {#if true}
+              {@const used = usedTokens ?? 0}
+              {@const limit = contextLimit()}
+              {@const ratio = limit ? Math.min(1, used / limit) : 0}
+              {@const percent = Math.round(ratio * 100)}
+              <span
+                class="context-meter"
+                class:warn={ratio >= 0.8}
+                class:alert={ratio >= 0.95}
+                role="meter"
+                aria-label="Context used"
+                aria-valuemin={0}
+                aria-valuemax={limit || undefined}
+                aria-valuenow={used}
+                aria-valuetext={limit ? `${percent}%` : 'Unlimited'}
+                title={limit
+                  ? `${used.toLocaleString()} / ${limit.toLocaleString()} tokens (${percent}%)`
+                  : `${used.toLocaleString()} tokens (unlimited)`}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle class="track" cx="12" cy="12" r="9"></circle>
+                  {#if percent > 0}
+                    <circle
+                      class="fill"
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      stroke-dasharray={contextRing}
+                      stroke-dashoffset={contextRing * (1 - ratio)}
+                    ></circle>
+                  {/if}
+                </svg>
+              </span>
+            {/if}
+            <button class="send-button" type="submit" disabled={(!prompt.trim() && !pendingImages.length) || loading || attaching} aria-label="Send message">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19V5"/><path d="m6 11 6-6 6 6"/></svg>
+            </button>
+          </div>
         </div>
       </form>
       {#if error}
@@ -852,6 +905,11 @@
                 <small>Enter a model ID, or refresh the list after adding an API Key and Base URL.</small>
               {/if}
             </div>
+            <label>
+              <span>Context length</span>
+              <input id="context-length" type="number" min="1" step="1" bind:value={contextLength} placeholder="Unlimited" />
+              <small>Model context window in tokens. Leave empty for unlimited context.</small>
+            </label>
             <div class="model-field">
               <label for="effort-input"><span>Thinking intensity</span></label>
               <Select
