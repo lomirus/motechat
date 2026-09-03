@@ -985,11 +985,6 @@
                 <small>Enter a model ID, or refresh the list after adding an API Key and Base URL.</small>
               {/if}
             </div>
-            <label>
-              <span>Context length</span>
-              <input id="context-length" type="number" min="1" step="1" bind:value={contextLength} placeholder="Unlimited" />
-              <small>Model context window in tokens. Leave empty for unlimited context.</small>
-            </label>
             <div class="model-field">
               <label for="effort-input"><span>Thinking intensity</span></label>
               <Select
@@ -1002,6 +997,11 @@
               />
               <small>Sent as <code>reasoning.effort</code>. Supported values vary by model.</small>
             </div>
+            <label>
+              <span>Context length</span>
+              <input id="context-length" type="number" min="1" step="1" bind:value={contextLength} placeholder="Unlimited" />
+              <small>Model context window in tokens. Leave empty for unlimited context.</small>
+            </label>
             <div class="model-field">
               <span class="field-label" id="currency-label">Currency</span>
               <div class="theme-picker pair" data-currency={currency} role="group" aria-labelledby="currency-label">
