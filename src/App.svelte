@@ -66,7 +66,6 @@
   let profileMenuOpen = false
   let systemPrompt = ''
   let showApiKey = false
-  let showReasoning = false
   let reasoningEffort: ReasoningEffort | '' = ''
   let prompt = ''
   let pendingImages: string[] = []
@@ -110,7 +109,6 @@
         profiles = parsed.profiles
         activeProfileId = parsed.activeProfileId
         loadActiveProfile()
-        showReasoning = stored.showReasoning === true
         reasoningEffort = isReasoningEffort(stored.reasoningEffort) ? stored.reasoningEffort : ''
       }
     } catch {
@@ -192,7 +190,6 @@
       availableModels,
       profiles,
       activeProfileId,
-      showReasoning,
       reasoningEffort,
     }))
   }
@@ -411,7 +408,7 @@
     const requestedAt = performance.now()
 
     try {
-      const reasoning = reasoningConfig(reasoningEffort, showReasoning)
+      const reasoning = reasoningConfig(reasoningEffort)
       const response = await fetch(responsesUrl(baseUrl), {
         method: 'POST',
         headers: {
@@ -450,14 +447,9 @@
           } else {
             if (!startedAt) startedAt = performance.now()
             if (!countedFromUsage) tokens += 1
-            if (event.type === 'reasoning') {
-              if (showReasoning) reasoning += event.delta
-            } else {
-              reply += event.delta
-            }
-            if (timeToFirstToken === undefined && (event.type !== 'reasoning' || showReasoning)) {
-              timeToFirstToken = performance.now() - requestedAt
-            }
+            if (event.type === 'reasoning') reasoning += event.delta
+            else reply += event.delta
+            if (timeToFirstToken === undefined) timeToFirstToken = performance.now() - requestedAt
           }
           tokensPerSecond = startedAt ? outputSpeed(tokens, performance.now() - startedAt) : undefined
           await showMessages([...nextMessages, assistant()])
@@ -469,7 +461,7 @@
         await showMessages([...nextMessages, {
           role: 'assistant',
           content: extractResponseText(data),
-          reasoning: showReasoning ? extractResponseReasoning(data) : '',
+          reasoning: extractResponseReasoning(data),
         }])
       }
     } catch (cause) {
@@ -968,10 +960,6 @@
               />
               <small>Sent as <code>reasoning.effort</code>. Supported values vary by model.</small>
             </div>
-            <label class="reasoning-toggle">
-              <input type="checkbox" bind:checked={showReasoning} />
-              <span>Show reasoning summaries<small>Available for supported reasoning models.</small></span>
-            </label>
           </div>
         </section>
 

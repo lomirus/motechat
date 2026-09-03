@@ -1256,22 +1256,6 @@ h1, h2, p {
   color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
-.fields .reasoning-toggle {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-.fields .reasoning-toggle input {
-  width: 16px;
-  height: 16px;
-  margin: 1px 0 0;
-  padding: 0;
-  box-shadow: none;
-}
-.fields .reasoning-toggle > span {
-  margin: 0;
-}
-
 @keyframes enter {
   from {
     opacity: 0;

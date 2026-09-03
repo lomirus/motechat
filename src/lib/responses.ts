@@ -213,12 +213,9 @@ export function isReasoningEffort(value: unknown): value is ReasoningEffort {
   return reasoningEfforts.includes(value as ReasoningEffort)
 }
 
-export function reasoningConfig(effort: ReasoningEffort | '', showSummary: boolean) {
-  if (!effort && !showSummary) return
-  return {
-    ...(effort ? { effort } : {}),
-    ...(showSummary ? { summary: 'auto' as const } : {}),
-  }
+export function reasoningConfig(effort: ReasoningEffort | '') {
+  if (!effort) return
+  return { effort }
 }
 
 export function toResponseInput(messages: { role: string; content: string; images?: string[] }[]) {
