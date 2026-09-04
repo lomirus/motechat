@@ -142,6 +142,22 @@ export function parseConnections(stored: Record<string, unknown>): {
   return { connections, activeConnectionId }
 }
 
+/** Fields on the `connection` object passed into user scripts. */
+export const scriptConnectionFields = [
+  ['id', 'string'],
+  ['name', 'string'],
+  ['apiKey', 'string'],
+  ['baseUrl', 'string'],
+  ['model', 'string'],
+  ['contextLength', 'number | null'],
+  ['currency', "'CNY' | 'USD'"],
+  ['cacheHitPrice', 'number | null'],
+  ['cacheMissPrice', 'number | null'],
+  ['outputPrice', 'number | null'],
+  ['availableModels', 'string[]'],
+  ['reasoningEffort', "'' | 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'"],
+] as const
+
 /** Plain copy of the stored connection for user scripts. Mutations stay on this object. */
 function connectionView(connection: Connection) {
   return {

@@ -18,6 +18,24 @@
   --accent-text: #fff;
   --accent-soft: #e9eee9;
   --green: #55705a;
+  --code-bg: light-dark(#fff, #121314);
+  --code-fg: light-dark(#202020, #bbbebf);
+  --code-sel: light-dark(#0069cc40, #276782dd);
+  --code-kw: light-dark(#cf222e, #ff7b72);
+  --code-ctrl: light-dark(#af00db, #c586c0);
+  --code-str: light-dark(#0a3069, #a5d6ff);
+  --code-num: light-dark(#098658, #b5cea8);
+  --code-bool: light-dark(#0000ff, #569cd6);
+  --code-cmt: light-dark(#6e7781, #8b949e);
+  --code-fn: light-dark(#795e26, #dcdcaa);
+  --code-fn-name: light-dark(#8250df, #d2a8ff);
+  --code-class: light-dark(#267f99, #4ec9b0);
+  --code-name: light-dark(#953800, #ffa657);
+  --code-key: light-dark(#001080, #9cdcfe);
+  --code-var: light-dark(#1f2328, #c9d1d9);
+  --code-suggest: light-dark(#fafafd, #202122);
+  --code-suggest-sel: light-dark(#00000025, #ffffff26);
+  --code-match: light-dark(#0069cc40, #3994bc55);
   --shadow: 0 12px 36px rgb(31 32 28 / 8%), 0 2px 8px rgb(31 32 28 / 4%);
   color-scheme: light;
 }
@@ -1047,7 +1065,7 @@ h1, h2, p {
 
 .settings-card {
   display: grid;
-  grid-template-columns: 1fr 1.45fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr);
   gap: 44px;
   padding: 27px;
   border: 1px solid var(--border);
@@ -1140,6 +1158,8 @@ h1, h2, p {
 }
 .fields {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 21px;
 }
 .fields .field-label,
@@ -1394,7 +1414,7 @@ h1, h2, p {
   border-radius: 4px;
   background: var(--surface-soft);
   color: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: Consolas, ui-monospace, SFMono-Regular, monospace;
 }
 .fields .info {
   position: relative;
@@ -1431,7 +1451,7 @@ h1, h2, p {
   background: var(--surface);
   box-shadow: var(--shadow);
   color: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: Consolas, ui-monospace, SFMono-Regular, monospace;
   font-size: 11.5px;
   font-weight: 400;
   line-height: 1.45;
@@ -1443,13 +1463,94 @@ h1, h2, p {
 .fields .info:focus-within .info-tip {
   display: block;
 }
-.fields textarea.code {
+.fields .code-editor {
+  min-width: 0;
+  max-width: 100%;
   min-height: 180px;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 12.5px;
-  line-height: 1.45;
-  white-space: pre;
-  overflow-x: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 11px;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.fields .code-editor:focus-within {
+  border-color: var(--muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 12%, transparent);
+}
+.fields .code-editor .cm-editor {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+}
+.fields .code-editor .cm-scroller {
+  min-width: 0;
+  overflow: auto;
+}
+.fields .code-editor .cm-selectionBackground,
+.fields .code-editor .cm-focused .cm-selectionBackground {
+  background: var(--code-sel) !important;
+}
+.fields .code-editor .cm-focused .cm-matchingBracket {
+  background-color: var(--code-match) !important;
+}
+.fields .code-editor .cm-focused .cm-nonmatchingBracket {
+  background-color: light-dark(#cf222e44, #f4877144) !important;
+}
+.fields .code-editor .cm-content ::selection {
+  background: transparent;
+}
+.fields .code-editor .cm-pascal-class,
+.fields .code-editor .cm-pascal-class * {
+  color: var(--code-class);
+}
+.cm-tooltip.cm-tooltip-autocomplete {
+  z-index: 40;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--code-suggest);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 18%);
+  color: var(--code-fg);
+  font-family: Consolas, ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+}
+.cm-tooltip.cm-tooltip-autocomplete > ul {
+  margin: 0;
+  padding: 6px;
+  font-family: Consolas, ui-monospace, SFMono-Regular, monospace !important;
+}
+.cm-tooltip-autocomplete ul li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  padding: 6px 10px;
+  overflow: hidden;
+  border-radius: 7px;
+  color: var(--code-fg);
+}
+.cm-tooltip-autocomplete ul li[aria-selected] {
+  background: var(--code-suggest-sel) !important;
+  color: var(--code-fg) !important;
+}
+.cm-tooltip-autocomplete .cm-completionLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm-tooltip-autocomplete .cm-completionDetail {
+  flex: 0 1 auto;
+  margin-left: auto;
+  color: var(--code-cmt);
+  font-size: 11px;
+  font-style: normal;
+  white-space: nowrap;
+}
+.cm-tooltip-autocomplete ul li[aria-selected] .cm-completionDetail {
+  color: var(--code-cmt);
 }
 @keyframes enter {
   from {
@@ -1529,7 +1630,7 @@ h1, h2, p {
     margin-top: 32px;
   }
   .settings-card {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 22px;
     padding: 20px;
   }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
+  import Code from './lib/Code.svelte'
   import Select from './lib/Select.svelte'
   import { configScriptHelp, createConnection, duplicateConnection, evaluateConnection, fieldsScriptHelp, parseConnections, type Connection } from './lib/connections'
   import { createProfile, parseProfiles, type Profile } from './lib/profiles'
@@ -1201,15 +1202,12 @@
                   <pre class="info-tip" role="tooltip">{fieldsScriptHelp}</pre>
                 </span>
               </span>
-              <textarea
+              <Code
                 id="fields-script"
-                class="code"
                 bind:value={fieldsScript}
-                spellcheck="false"
-                wrap="off"
-                autocomplete="off"
+                selectedKeys={evaluated.fields.map((field) => field.id)}
                 placeholder={"return [\n  { id: 'tier', name: 'Tier', options: [\n    { id: 'fast', label: 'Fast' },\n    { id: 'expert', label: 'Expert' },\n  ]},\n]"}
-              ></textarea>
+              />
               {#if evaluated.fieldsError}
                 <small class="field-error" role="alert">{evaluated.fieldsError}</small>
               {:else}
@@ -1226,15 +1224,12 @@
                   <pre class="info-tip" role="tooltip">{configScriptHelp}</pre>
                 </span>
               </span>
-              <textarea
+              <Code
                 id="config-script"
-                class="code"
                 bind:value={configScript}
-                spellcheck="false"
-                wrap="off"
-                autocomplete="off"
+                selectedKeys={evaluated.fields.map((field) => field.id)}
                 placeholder={"return {\n  ...connection,\n  model: selected.tier === 'expert' ? 'gpt-5.6-sol' : 'gpt-5.6-luna',\n}"}
-              ></textarea>
+              />
               {#if evaluated.configError}
                 <small class="field-error" role="alert">{evaluated.configError}</small>
               {:else}
