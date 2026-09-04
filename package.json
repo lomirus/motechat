@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "pnpm lint && svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
-    "test": "node src/lib/responses.test.ts && node src/lib/profiles.test.ts && node src/lib/connections.test.ts",
+    "test": "node src/lib/responses.test.ts && node src/lib/profiles.test.ts && node src/lib/connections.test.ts && node src/lib/code.test.ts",
     "lint": "oxlint && stylelint \"src/**/*.css\""
   },
   "devDependencies": {

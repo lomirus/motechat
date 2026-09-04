@@ -3,10 +3,11 @@
   import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, type CompletionContext } from '@codemirror/autocomplete'
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
   import { javascript, javascriptLanguage } from '@codemirror/lang-javascript'
-  import { HighlightStyle, bracketMatching, indentOnInput, indentUnit, syntaxHighlighting, syntaxTree } from '@codemirror/language'
+  import { HighlightStyle, bracketMatching, indentOnInput, indentUnit, syntaxHighlighting } from '@codemirror/language'
   import { EditorState } from '@codemirror/state'
   import { Decoration, EditorView, ViewPlugin, drawSelection, highlightSpecialChars, keymap, placeholder as cmPlaceholder, type DecorationSet, type ViewUpdate } from '@codemirror/view'
   import { tags } from '@lezer/highlight'
+  import { scriptMarks, type ScriptMarkKind } from './code'
   import { scriptConnectionFields } from './connections'
 
   let {
@@ -22,67 +23,64 @@
   } = $props()
 
   const highlightStyle = HighlightStyle.define([
-    { tag: tags.keyword, color: 'var(--code-bool)' },
-    { tag: tags.controlKeyword, color: 'var(--code-ctrl)' },
-    { tag: tags.definitionKeyword, color: 'var(--code-kw)' },
-    { tag: tags.moduleKeyword, color: 'var(--code-kw)' },
-    { tag: tags.operatorKeyword, color: 'var(--code-fg)' },
-    { tag: tags.modifier, color: 'var(--code-kw)' },
-    { tag: tags.bool, color: 'var(--code-bool)' },
-    { tag: tags.null, color: 'var(--code-bool)' },
-    { tag: tags.atom, color: 'var(--code-bool)' },
-    { tag: tags.self, color: 'var(--code-bool)' },
+    { tag: tags.keyword, color: 'var(--code-keyword)' },
+    { tag: tags.controlKeyword, color: 'var(--code-control)' },
+    { tag: tags.definitionKeyword, color: 'var(--code-keyword)' },
+    { tag: tags.moduleKeyword, color: 'var(--code-keyword)' },
+    { tag: tags.operatorKeyword, color: 'var(--code-special-keyword)' },
+    { tag: tags.modifier, color: 'var(--code-keyword)' },
+    { tag: tags.bool, color: 'var(--code-primitive)' },
+    { tag: tags.null, color: 'var(--code-primitive)' },
+    { tag: tags.atom, color: 'var(--code-primitive)' },
+    { tag: tags.self, color: 'var(--code-constant)' },
     { tag: tags.string, color: 'var(--code-str)' },
     { tag: tags.special(tags.string), color: 'var(--code-str)' },
     { tag: tags.regexp, color: 'var(--code-str)' },
     { tag: tags.comment, color: 'var(--code-cmt)' },
     { tag: tags.lineComment, color: 'var(--code-cmt)' },
     { tag: tags.blockComment, color: 'var(--code-cmt)' },
-    { tag: tags.number, color: 'var(--code-num)' },
-    { tag: tags.function(tags.definition(tags.variableName)), color: 'var(--code-fn-name)' },
-    { tag: tags.function(tags.variableName), color: 'var(--code-fn-name)' },
+    { tag: tags.number, color: 'var(--code-number)' },
+    { tag: tags.function(tags.definition(tags.variableName)), color: 'var(--code-fn)' },
+    { tag: tags.function(tags.variableName), color: 'var(--code-fn)' },
     { tag: tags.function(tags.propertyName), color: 'var(--code-fn)' },
-    { tag: tags.definition(tags.variableName), color: 'var(--code-name)' },
+    { tag: tags.definition(tags.variableName), color: 'var(--code-var)' },
     { tag: tags.definition(tags.className), color: 'var(--code-class)' },
     { tag: tags.definition(tags.typeName), color: 'var(--code-class)' },
     { tag: tags.className, color: 'var(--code-class)' },
     { tag: tags.typeName, color: 'var(--code-class)' },
-    { tag: tags.definition(tags.propertyName), color: 'var(--code-key)' },
+    { tag: tags.definition(tags.propertyName), color: 'var(--code-var)' },
     { tag: tags.propertyName, color: 'var(--code-var)' },
     { tag: tags.variableName, color: 'var(--code-var)' },
-    { tag: tags.operator, color: 'var(--code-fg)' },
-    { tag: tags.punctuation, color: 'var(--code-fg)' },
-    { tag: tags.bracket, color: 'var(--code-fg)' },
-    { tag: tags.paren, color: 'var(--code-fg)' },
-    { tag: tags.squareBracket, color: 'var(--code-fg)' },
-    { tag: tags.brace, color: 'var(--code-fg)' },
-    { tag: tags.separator, color: 'var(--code-fg)' },
-    { tag: tags.derefOperator, color: 'var(--code-fg)' },
+    { tag: tags.operator, color: 'var(--code-symbol)' },
+    { tag: tags.punctuation, color: 'var(--code-symbol)' },
+    { tag: tags.bracket, color: 'var(--code-symbol)' },
+    { tag: tags.paren, color: 'var(--code-symbol)' },
+    { tag: tags.squareBracket, color: 'var(--code-symbol)' },
+    { tag: tags.brace, color: 'var(--code-symbol)' },
+    { tag: tags.separator, color: 'var(--code-symbol)' },
+    { tag: tags.derefOperator, color: 'var(--code-symbol)' },
   ])
 
-  const pascalClass = Decoration.mark({ class: 'cm-pascal-class' })
-  const pascalNames = ViewPlugin.fromClass(class {
+  const semanticDecorations: Record<ScriptMarkKind, Decoration> = {
+    local: Decoration.mark({ class: 'cm-local-name' }),
+    parameter: Decoration.mark({ class: 'cm-parameter-name' }),
+    class: Decoration.mark({ class: 'cm-pascal-class' }),
+    'special-keyword': Decoration.mark({ class: 'cm-special-keyword' }),
+    'bracket-1': Decoration.mark({ class: 'cm-bracket-1' }),
+    'bracket-2': Decoration.mark({ class: 'cm-bracket-2' }),
+    'bracket-3': Decoration.mark({ class: 'cm-bracket-3' }),
+  }
+  const semanticNames = ViewPlugin.fromClass(class {
     decorations: DecorationSet
-    constructor(view: EditorView) { this.decorations = markPascal(view) }
+    constructor(view: EditorView) { this.decorations = markNames(view) }
     update(u: ViewUpdate) {
-      if (u.docChanged || u.viewportChanged) this.decorations = markPascal(u.view)
+      if (u.docChanged || u.viewportChanged) this.decorations = markNames(u.view)
     }
   }, { decorations: (v) => v.decorations })
 
-  // ponytail: PascalCase ≈ class; upgrade is JS semantic tokens
-  function markPascal(view: EditorView) {
-    const out: ReturnType<typeof pascalClass.range>[] = []
-    for (const { from, to } of view.visibleRanges) {
-      syntaxTree(view.state).iterate({
-        from, to,
-        enter(node) {
-          if (node.name !== 'VariableName') return
-          const ch = view.state.doc.sliceString(node.from, node.from + 1)
-          if (ch < 'A' || ch > 'Z') return
-          out.push(pascalClass.range(node.from, node.to))
-        },
-      })
-    }
+  // ponytail: name matching is scope-insensitive; upgrade to JS semantic tokens if shadowing matters
+  function markNames(view: EditorView) {
+    const out = scriptMarks(view.state).map((mark) => semanticDecorations[mark.kind].range(mark.from, mark.to))
     return Decoration.set(out)
   }
 
@@ -156,7 +154,7 @@
           javascriptLanguage.data.of({ autocomplete: completions }),
           autocompletion({ activateOnTyping: true, icons: false }),
           syntaxHighlighting(highlightStyle),
-          pascalNames,
+          semanticNames,
           cmPlaceholder(placeholder),
           EditorView.contentAttributes.of({ id, spellcheck: 'false' }),
           keymap.of([
@@ -185,11 +183,11 @@
               minHeight: '180px',
             },
             '.cm-cursor': { borderLeftColor: 'var(--code-fg)' },
-            '.cm-placeholder': { color: 'var(--code-cmt)' },
+            '.cm-placeholder': { color: 'var(--code-placeholder)' },
             '.cm-selectionBackground': { background: 'var(--code-sel)' },
             '&.cm-focused .cm-selectionBackground': { background: 'var(--code-sel)' },
             '&.cm-focused .cm-matchingBracket': { backgroundColor: 'var(--code-match)' },
-            '&.cm-focused .cm-nonmatchingBracket': { backgroundColor: 'light-dark(#cf222e44, #f4877144)' },
+            '&.cm-focused .cm-nonmatchingBracket': { backgroundColor: 'var(--code-invalid)' },
             '.cm-tooltip.cm-tooltip-autocomplete > ul': {
               fontFamily: 'Consolas, ui-monospace, SFMono-Regular, monospace',
             },

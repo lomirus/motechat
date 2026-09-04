@@ -18,24 +18,35 @@
   --accent-text: #fff;
   --accent-soft: #e9eee9;
   --green: #55705a;
-  --code-bg: light-dark(#fff, #121314);
-  --code-fg: light-dark(#202020, #bbbebf);
-  --code-sel: light-dark(#0069cc40, #276782dd);
-  --code-kw: light-dark(#cf222e, #ff7b72);
-  --code-ctrl: light-dark(#af00db, #c586c0);
-  --code-str: light-dark(#0a3069, #a5d6ff);
-  --code-num: light-dark(#098658, #b5cea8);
-  --code-bool: light-dark(#0000ff, #569cd6);
-  --code-cmt: light-dark(#6e7781, #8b949e);
-  --code-fn: light-dark(#795e26, #dcdcaa);
-  --code-fn-name: light-dark(#8250df, #d2a8ff);
-  --code-class: light-dark(#267f99, #4ec9b0);
-  --code-name: light-dark(#953800, #ffa657);
-  --code-key: light-dark(#001080, #9cdcfe);
-  --code-var: light-dark(#1f2328, #c9d1d9);
-  --code-suggest: light-dark(#fafafd, #202122);
-  --code-suggest-sel: light-dark(#00000025, #ffffff26);
-  --code-match: light-dark(#0069cc40, #3994bc55);
+  --code-bg: #121314;
+  --code-fg: #bbbebf;
+  --code-sel: #276782dd;
+  --code-keyword: #ff7b72;
+  --code-control: #c586c0;
+  --code-special-keyword: #569cd6;
+  --code-constant: #79c0ff;
+  --code-primitive: #569cd6;
+  --code-number: #b5cea8;
+  --code-str: #a5d6ff;
+  --code-cmt: #8b949e;
+  --code-fn: #d2a8ff;
+  --code-class: #4ec9b0;
+  --code-local: #79c0ff;
+  --code-parameter: #ffa657;
+  --code-var: #c9d1d9;
+  --code-symbol: #d4d4d4;
+  --code-bracket-1: #ffd700;
+  --code-bracket-2: #da70d6;
+  --code-bracket-3: #179fff;
+  --code-suggest: #202122;
+  --code-suggest-fg: #bfbfbf;
+  --code-suggest-border: #2a2b2c;
+  --code-suggest-sel: #ffffff26;
+  --code-match: #3994bc55;
+  --code-focus: #3994bcb3;
+  --code-border: #333536;
+  --code-placeholder: #555;
+  --code-invalid: #f4877144;
   --shadow: 0 12px 36px rgb(31 32 28 / 8%), 0 2px 8px rgb(31 32 28 / 4%);
   color-scheme: light;
 }
@@ -1467,15 +1478,15 @@ h1, h2, p {
   min-width: 0;
   max-width: 100%;
   min-height: 180px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--code-border);
   border-radius: 11px;
   background: var(--code-bg);
   color: var(--code-fg);
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 .fields .code-editor:focus-within {
-  border-color: var(--muted);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 12%, transparent);
+  border-color: var(--code-focus);
+  box-shadow: 0 0 0 1px var(--code-focus);
 }
 .fields .code-editor .cm-editor {
   width: 100%;
@@ -1495,7 +1506,7 @@ h1, h2, p {
   background-color: var(--code-match) !important;
 }
 .fields .code-editor .cm-focused .cm-nonmatchingBracket {
-  background-color: light-dark(#cf222e44, #f4877144) !important;
+  background-color: var(--code-invalid) !important;
 }
 .fields .code-editor .cm-content ::selection {
   background: transparent;
@@ -1504,14 +1515,38 @@ h1, h2, p {
 .fields .code-editor .cm-pascal-class * {
   color: var(--code-class);
 }
+.fields .code-editor .cm-local-name,
+.fields .code-editor .cm-local-name * {
+  color: var(--code-local);
+}
+.fields .code-editor .cm-parameter-name,
+.fields .code-editor .cm-parameter-name * {
+  color: var(--code-parameter);
+}
+.fields .code-editor .cm-special-keyword,
+.fields .code-editor .cm-special-keyword * {
+  color: var(--code-special-keyword);
+}
+.fields .code-editor .cm-bracket-1,
+.fields .code-editor .cm-bracket-1 * {
+  color: var(--code-bracket-1);
+}
+.fields .code-editor .cm-bracket-2,
+.fields .code-editor .cm-bracket-2 * {
+  color: var(--code-bracket-2);
+}
+.fields .code-editor .cm-bracket-3,
+.fields .code-editor .cm-bracket-3 * {
+  color: var(--code-bracket-3);
+}
 .cm-tooltip.cm-tooltip-autocomplete {
   z-index: 40;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid var(--code-suggest-border);
   border-radius: 11px;
   background: var(--code-suggest);
   box-shadow: 0 12px 28px rgb(0 0 0 / 18%);
-  color: var(--code-fg);
+  color: var(--code-suggest-fg);
   font-family: Consolas, ui-monospace, SFMono-Regular, monospace;
   font-size: 12px;
 }
@@ -1529,11 +1564,11 @@ h1, h2, p {
   padding: 6px 10px;
   overflow: hidden;
   border-radius: 7px;
-  color: var(--code-fg);
+  color: var(--code-suggest-fg);
 }
 .cm-tooltip-autocomplete ul li[aria-selected] {
   background: var(--code-suggest-sel) !important;
-  color: var(--code-fg) !important;
+  color: var(--code-suggest-fg) !important;
 }
 .cm-tooltip-autocomplete .cm-completionLabel {
   min-width: 0;
