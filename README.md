@@ -2,7 +2,9 @@
 
 # MoteChat
 
-A small, private AI chat client for the OpenAI Responses API and compatible endpoints.
+A local-first AI chat client for the OpenAI Responses API and compatible endpoints.
+
+[Open the live app](https://lomirus.github.io/motechat/) — chats and settings stay in your browser.
 
 ## Features
 
@@ -11,7 +13,6 @@ A small, private AI chat client for the OpenAI Responses API and compatible endp
 - Image attachments
 - Per-connection model fields and request configuration
 - Light, dark, and system themes
-- Settings stored locally in the browser
 
 ## Run locally
 
