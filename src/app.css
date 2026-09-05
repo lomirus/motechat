@@ -133,13 +133,13 @@ svg {
 
 .app-shell {
   min-height: 100svh;
+  transition: margin-left 220ms cubic-bezier(.22, 1, .36, 1);
 }
 
 .app-shell.sidebar-visible {
   margin-left: 264px;
 }
 
-.sidebar-visible .topbar,
 .sidebar-visible .composer-area {
   left: 264px;
 }
@@ -151,10 +151,18 @@ svg {
   width: 264px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px 14px;
+  gap: 14px;
+  padding: 80px 28px 20px;
   border-right: 1px solid var(--border);
   background: var(--surface);
+  transform: translateX(-100%);
+  pointer-events: none;
+  transition: transform 220ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.sidebar-visible .chat-sidebar {
+  transform: none;
+  pointer-events: auto;
 }
 
 .chat-sidebar > .model-select {
@@ -165,33 +173,10 @@ svg {
   text-overflow: ellipsis;
 }
 
-.sidebar-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 36px;
-  flex-shrink: 0;
-  font-size: 14px;
-}
-
 .sidebar-label,
 .sidebar-empty {
   color: var(--muted);
   font-size: 12px;
-}
-
-.sidebar-new,
-.sidebar-settings {
-  flex-shrink: 0;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 11px 12px;
-  background: var(--surface-soft);
-  color: var(--text);
-  text-align: left;
-  text-decoration: none;
-  font-size: 13px;
-  cursor: pointer;
 }
 
 .chat-list {
@@ -210,9 +195,7 @@ svg {
 }
 
 .chat-list-item:hover,
-.chat-list-item.active,
-.sidebar-new:hover,
-.sidebar-settings:hover {
+.chat-list-item.active {
   background: var(--surface-hover);
 }
 
@@ -254,13 +237,18 @@ svg {
     margin-left: 0;
   }
 
-  .sidebar-visible .topbar,
   .sidebar-visible .composer-area {
     left: 0;
   }
 
+  .topbar::before {
+    content: none;
+  }
+
   .chat-sidebar {
+    inset: 60px auto 0 0;
     width: min(264px, calc(100vw - 56px));
+    padding: 16px;
     box-shadow: var(--shadow);
   }
 }
@@ -291,15 +279,33 @@ svg {
 
 .topbar {
   position: fixed;
-  z-index: 20;
+  z-index: 26;
   inset: 0 0 auto;
   height: 68px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 28px;
   background: color-mix(in srgb, var(--bg) 84%, transparent);
   backdrop-filter: blur(18px);
+}
+
+.topbar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 264px;
+  box-sizing: border-box;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  transform: translateX(-100%);
+  transition: transform 220ms cubic-bezier(.22, 1, .36, 1);
+  pointer-events: none;
+}
+
+.sidebar-visible .topbar::before {
+  transform: none;
 }
 
 .brand {
@@ -321,8 +327,20 @@ svg {
   height: 28px;
 }
 .top-actions {
+  position: relative;
+  z-index: 1;
   display: flex;
+  align-items: center;
   gap: 6px;
+}
+
+.topbar > .top-actions:first-child {
+  padding-left: 28px;
+  gap: 14px;
+}
+
+.topbar > .top-actions:last-child {
+  padding-right: 28px;
 }
 
 .icon-button {
@@ -726,6 +744,7 @@ h1, h2, p {
   inset: auto 0 0;
   padding: 16px 24px 15px;
   background: linear-gradient(0deg, var(--bg) 72%, transparent);
+  transition: left 220ms cubic-bezier(.22, 1, .36, 1);
 }
 
 .composer {
@@ -1743,7 +1762,12 @@ h1, h2, p {
 @media (max-width: 680px) {
   .topbar {
     height: 60px;
-    padding: 0 16px;
+  }
+  .topbar > .top-actions:first-child {
+    padding-left: 16px;
+  }
+  .topbar > .top-actions:last-child {
+    padding-right: 16px;
   }
   .chat {
     padding: 78px 16px 178px;

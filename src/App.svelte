@@ -871,12 +871,9 @@
 
 {#if ready}
 <div class="app-shell" class:sidebar-visible={sidebarVisible} class:settings-page={page === 'settings'}>
-  {#if sidebarVisible}
-    <aside class="chat-sidebar" id="chat-sidebar" aria-label="Conversations">
-      <div class="sidebar-heading"><strong>Conversations</strong><button class="icon-button" type="button" aria-label="Hide sidebar" onclick={toggleSidebar}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button></div>
+    <aside class="chat-sidebar" id="chat-sidebar" aria-label="Conversations" aria-hidden={!sidebarVisible} inert={!sidebarVisible}>
       <label class="sidebar-label" for="sidebar-profile">Profile</label>
       <Select id="sidebar-profile" value={activeProfileId} options={profiles.map((profile): [string, string] => [profile.id, profile.name])} listLabel="Profiles" listName="profile groups" onchange={switchProfile} />
-      <button class="sidebar-new" type="button" onclick={newChat}>+ New chat</button>
       <nav class="chat-list" aria-label={`${profileName} conversations`}>
         {#each visibleChats as chat (chat.id)}
           <div class="chat-list-item" class:active={page === 'chat' && activeChatId === chat.id}>
@@ -887,9 +884,7 @@
           <p class="sidebar-empty">No conversations yet.</p>
         {/each}
       </nav>
-      <a class="sidebar-settings" href="#/settings" aria-current={page === 'settings' ? 'page' : undefined}>Settings</a>
     </aside>
-  {/if}
   {#if storageError}<div class="storage-error" role="alert">{storageError}</div>{/if}
   <header class="topbar">
     <div class="top-actions">
