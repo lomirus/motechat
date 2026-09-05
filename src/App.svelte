@@ -968,8 +968,10 @@
 
 {#if ready}
 <div class="app-shell" class:sidebar-visible={sidebarVisible} class:settings-page={page === 'settings'} class:has-chat-bg={page === 'chat' && !!profileBackground}>
-    {#if page === 'chat' && profileBackground}
-      <div class="chat-background" style={`background-image: url(${JSON.stringify(profileBackground)})`} aria-hidden="true"></div>
+    {#if profileBackground}
+      <div class="chat-background" aria-hidden="true">
+        <img src={profileBackground} alt="" />
+      </div>
     {/if}
     <aside class="chat-sidebar" id="chat-sidebar" aria-label="Conversations" aria-hidden={!sidebarVisible} inert={!sidebarVisible}>
       <label class="sidebar-label" for="sidebar-profile">Profile</label>
