@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import { loadChats, saveChat, removeChats, type Chat, type Message } from './lib/chats'
+  import { loadChats, saveChat, removeChats, loadBackground, saveBackground, removeBackgrounds, type Chat, type Message } from './lib/chats'
   import Code from './lib/Code.svelte'
   import Select from './lib/Select.svelte'
   import { configScriptHelp, createConnection, duplicateConnection, evaluateConnection, fieldsScriptHelp, parseConnections, type Connection } from './lib/connections'
@@ -81,11 +81,14 @@
   let availableModels: string[] = []
   let modelsLoading = false
   let modelsError = ''
-  let profiles: Profile[] = [{ id: 'default', name: 'Default', systemPrompt: '', icon: '' }]
+  let profiles: Profile[] = [{ id: 'default', name: 'Default', systemPrompt: '', icon: '', background: '' }]
   let activeProfileId = 'default'
   let profileName = 'Default'
   let profileIcon = ''
+  let profileBackground = ''
+  let backgroundToken = 0
   let iconError = ''
+  let backgroundError = ''
   let profileMenuOpen = false
   let systemPrompt = ''
   let showApiKey = false
@@ -125,6 +128,7 @@
   let form: HTMLFormElement
   let fileInput: HTMLInputElement
   let iconInput: HTMLInputElement
+  let backgroundInput: HTMLInputElement
   let textarea: HTMLTextAreaElement
   let editTextarea: HTMLTextAreaElement
   let messageEnd: HTMLDivElement
@@ -144,7 +148,12 @@
         const parsedProfiles = parseProfiles(stored)
         profiles = parsedProfiles.profiles
         activeProfileId = parsedProfiles.activeProfileId
+        const legacyBackgrounds = profiles.flatMap((profile) => (
+          profile.background.startsWith('data:') ? [{ id: profile.id, data: profile.background }] : []
+        ))
+        profiles = profiles.map((profile) => (profile.background ? { ...profile, background: '' } : profile))
         loadActiveProfile()
+        void migrateLegacyBackgrounds(legacyBackgrounds).then(() => showStoredBackground())
         const parsedConnections = parseConnections(stored)
         connections = parsedConnections.connections
         activeConnectionId = parsedConnections.activeConnectionId
@@ -297,7 +306,7 @@
 
   function persistActiveProfile() {
     profiles = profiles.map((profile) => profile.id === activeProfileId
-      ? { ...profile, name: profileName.trim() || profile.name, systemPrompt: systemPrompt.trim(), icon: profileIcon }
+      ? { ...profile, name: profileName.trim() || profile.name, systemPrompt: systemPrompt.trim(), icon: profileIcon, background: '' }
       : profile)
   }
 
@@ -308,6 +317,39 @@
     profileIcon = active.icon
     systemPrompt = active.systemPrompt
     iconError = ''
+    backgroundError = ''
+    void showStoredBackground()
+  }
+
+  function setBackgroundUrl(url: string) {
+    if (profileBackground.startsWith('blob:')) URL.revokeObjectURL(profileBackground)
+    profileBackground = url
+  }
+
+  async function showStoredBackground() {
+    const profileId = activeProfileId
+    const token = ++backgroundToken
+    try {
+      const blob = await loadBackground(profileId)
+      if (token !== backgroundToken) return
+      setBackgroundUrl(blob ? URL.createObjectURL(blob) : '')
+    } catch {
+      if (token !== backgroundToken) return
+      setBackgroundUrl('')
+    }
+  }
+
+  async function migrateLegacyBackgrounds(leftover: { id: string; data: string }[]) {
+    if (!leftover.length) return
+    for (const profile of leftover) {
+      try {
+        const blob = await (await fetch(profile.data)).blob()
+        if (blob.size) await saveBackground(profile.id, blob)
+      } catch {
+        // Skip a broken data URL; it is already off the profile record.
+      }
+    }
+    saveSettings()
   }
 
   function switchProfile(id: string) {
@@ -337,6 +379,7 @@
     const deletedId = activeProfileId
     try {
       await removeChats(chats.filter((chat) => chat.profileId === deletedId).map((chat) => chat.id))
+      await removeBackgrounds([deletedId])
     } catch {
       storageError = 'Could not delete local conversations. Please try again.'
       return
@@ -386,6 +429,9 @@
   }
 
   const profileIconSize = 128
+  const backgroundMaxEdge = 3840
+  const backgroundQuality = 0.92
+  // ponytail: AVIF at 0.92, 3840px cap. Upgrade: store the original file when it's already small enough.
 
   function readIcon(file: File) {
     return readImage(file).then((src) => new Promise<string>((resolve, reject) => {
@@ -407,6 +453,27 @@
     }))
   }
 
+  async function encodeBackground(file: File) {
+    const problem = imageFileError(file)
+    if (problem) throw new Error(problem)
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    try {
+      const scale = Math.min(1, backgroundMaxEdge / Math.max(bitmap.width, bitmap.height))
+      if (file.type === 'image/avif' && scale === 1) return file
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(bitmap.width * scale)
+      canvas.height = Math.round(bitmap.height * scale)
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Could not encode this image.')
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/avif', backgroundQuality))
+      if (!blob?.size) throw new Error('Could not encode this image.')
+      return blob
+    } finally {
+      bitmap.close()
+    }
+  }
+
   async function setProfileIcon(files: File[]) {
     const file = files[0]
     if (!file) return
@@ -416,6 +483,20 @@
       saveSettings()
     } catch (cause) {
       iconError = cause instanceof Error ? cause.message : 'Could not add this image.'
+    }
+  }
+
+  async function setProfileBackground(files: File[]) {
+    const file = files[0]
+    if (!file) return
+    try {
+      const blob = await encodeBackground(file)
+      await saveBackground(activeProfileId, blob)
+      setBackgroundUrl(URL.createObjectURL(blob))
+      backgroundError = ''
+      saveSettings()
+    } catch (cause) {
+      backgroundError = cause instanceof Error ? cause.message : 'Could not add this image.'
     }
   }
 
@@ -886,7 +967,10 @@
 {/snippet}
 
 {#if ready}
-<div class="app-shell" class:sidebar-visible={sidebarVisible} class:settings-page={page === 'settings'}>
+<div class="app-shell" class:sidebar-visible={sidebarVisible} class:settings-page={page === 'settings'} class:has-chat-bg={page === 'chat' && !!profileBackground}>
+    {#if page === 'chat' && profileBackground}
+      <div class="chat-background" style={`background-image: url(${JSON.stringify(profileBackground)})`} aria-hidden="true"></div>
+    {/if}
     <aside class="chat-sidebar" id="chat-sidebar" aria-label="Conversations" aria-hidden={!sidebarVisible} inert={!sidebarVisible}>
       <label class="sidebar-label" for="sidebar-profile">Profile</label>
       <Select id="sidebar-profile" value={activeProfileId} options={profiles.map((profile): [string, string, string] => [profile.id, profile.name, profile.icon])} listLabel="Profiles" listName="profile groups" onchange={switchProfile} />
@@ -1446,7 +1530,7 @@
         <section class="settings-card" aria-labelledby="profile-title">
           <div class="setting-copy">
             <h2 id="profile-title">Profile</h2>
-            <p>Create and switch profiles. Each one stores its own icon and instructions.</p>
+            <p>Create and switch profiles. Each one stores its own icon, background, and instructions.</p>
           </div>
           <div class="fields">
             <div class="model-field">
@@ -1524,6 +1608,56 @@
                 <small class="field-error" role="alert">{iconError}</small>
               {:else}
                 <small>Shown next to assistant replies. Optional.</small>
+              {/if}
+            </div>
+            <div class="model-field">
+              <label for="profile-background-input"><span>Background</span></label>
+              <input
+                id="profile-background-input"
+                bind:this={backgroundInput}
+                type="file"
+                accept="image/*"
+                hidden
+                onchange={(event) => {
+                  setProfileBackground([...(event.currentTarget.files ?? [])])
+                  event.currentTarget.value = ''
+                }}
+              />
+              <div class="profile-icon-row profile-background-row">
+                <button
+                  class="profile-background"
+                  type="button"
+                  aria-label={profileBackground ? 'Replace profile background' : 'Upload profile background'}
+                  title={profileBackground ? 'Replace background' : 'Upload background'}
+                  onclick={() => backgroundInput.click()}
+                >
+                  {#if profileBackground}<img src={profileBackground} alt="" />{/if}
+                </button>
+                {#if profileBackground}
+                  <button
+                    class="profile-icon-clear"
+                    type="button"
+                    aria-label="Remove profile background"
+                    title="Remove background"
+                    onclick={async () => {
+                      try {
+                        await removeBackgrounds([activeProfileId])
+                        setBackgroundUrl('')
+                        backgroundError = ''
+                        saveSettings()
+                      } catch {
+                        backgroundError = 'Could not remove this background.'
+                      }
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  </button>
+                {/if}
+              </div>
+              {#if backgroundError}
+                <small class="field-error" role="alert">{backgroundError}</small>
+              {:else}
+                <small>Shown behind conversations. Optional.</small>
               {/if}
             </div>
             <label>

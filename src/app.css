@@ -241,6 +241,10 @@ svg {
     left: 0;
   }
 
+  .sidebar-visible .chat-background {
+    left: 0;
+  }
+
   .topbar::before {
     content: none;
   }
@@ -368,6 +372,8 @@ svg {
 }
 
 .chat {
+  position: relative;
+  z-index: 1;
   min-height: 100svh;
   display: grid;
   place-items: center;
@@ -754,6 +760,28 @@ h1, h2, p {
   padding: 16px 24px 15px;
   background: linear-gradient(0deg, var(--bg) 72%, transparent);
   transition: left 220ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.has-chat-bg .composer-area {
+  background: linear-gradient(0deg, color-mix(in srgb, var(--bg) 62%, transparent) 55%, transparent);
+}
+
+.chat-background {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background: center / cover no-repeat;
+  transition: left 220ms cubic-bezier(.22, 1, .36, 1);
+}
+.chat-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg) 56%, transparent);
+}
+.sidebar-visible .chat-background {
+  left: 264px;
 }
 
 .composer {
@@ -1534,6 +1562,9 @@ h1, h2, p {
   position: relative;
   width: fit-content;
 }
+.profile-background-row {
+  width: 100%;
+}
 .fields .profile-icon {
   width: 44px;
   height: 44px;
@@ -1547,11 +1578,26 @@ h1, h2, p {
 .fields .profile-icon:hover {
   background: var(--surface-hover);
 }
-.profile-icon img {
+.profile-icon img,
+.profile-background img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.fields .profile-background {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 11px;
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+.fields .profile-background:hover {
+  background: var(--surface-hover);
 }
 .fields .profile-icon-clear {
   position: absolute;

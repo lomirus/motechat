@@ -5,6 +5,7 @@ export type Profile = {
   name: string
   systemPrompt: string
   icon: string
+  background: string
 }
 
 function toProfile(value: unknown): Profile | undefined {
@@ -18,6 +19,7 @@ function toProfile(value: unknown): Profile | undefined {
     name: value.name,
     systemPrompt: value.systemPrompt,
     icon: typeof value.icon === 'string' ? value.icon : '',
+    background: typeof value.background === 'string' ? value.background : '',
   }
 }
 
@@ -36,6 +38,7 @@ export function createProfile(existing: readonly Profile[], systemPrompt = ''): 
     name: nextProfileName(existing.map((profile) => profile.name)),
     systemPrompt,
     icon: '',
+    background: '',
   }
 }
 
@@ -48,7 +51,7 @@ export function parseProfiles(stored: Record<string, unknown>): { profiles: Prof
     : []
   if (!profiles.length) {
     const systemPrompt = typeof stored.systemPrompt === 'string' ? stored.systemPrompt : ''
-    const fallback = { id: 'default', name: 'Default', systemPrompt, icon: '' }
+    const fallback = { id: 'default', name: 'Default', systemPrompt, icon: '', background: '' }
     return { profiles: [fallback], activeProfileId: fallback.id }
   }
   const activeProfileId = typeof stored.activeProfileId === 'string'

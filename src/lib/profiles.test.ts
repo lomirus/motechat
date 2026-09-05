@@ -10,21 +10,23 @@ const created = createProfile([])
 assert.equal(created.name, 'Default')
 assert.equal(created.systemPrompt, '')
 assert.equal(created.icon, '')
+assert.equal(created.background, '')
 assert.equal(createProfile([created], 'Be brief.').name, 'Profile 2')
 assert.equal(createProfile([created], 'Be brief.').systemPrompt, 'Be brief.')
 assert.equal(createProfile([created], 'Be brief.').icon, '')
+assert.equal(createProfile([created], 'Be brief.').background, '')
 
 assert.deepEqual(parseProfiles({}), {
-  profiles: [{ id: 'default', name: 'Default', systemPrompt: '', icon: '' }],
+  profiles: [{ id: 'default', name: 'Default', systemPrompt: '', icon: '', background: '' }],
   activeProfileId: 'default',
 })
 assert.deepEqual(parseProfiles({ systemPrompt: 'Stay concise.' }), {
-  profiles: [{ id: 'default', name: 'Default', systemPrompt: 'Stay concise.', icon: '' }],
+  profiles: [{ id: 'default', name: 'Default', systemPrompt: 'Stay concise.', icon: '', background: '' }],
   activeProfileId: 'default',
 })
 
-const work = { id: 'work', name: 'Work', systemPrompt: 'Be formal.', icon: 'data:image/png;base64,abc' }
-const home = { id: 'home', name: 'Home', systemPrompt: 'Be casual.', icon: '' }
+const work = { id: 'work', name: 'Work', systemPrompt: 'Be formal.', icon: 'data:image/png;base64,abc', background: 'data:image/jpeg;base64,def' }
+const home = { id: 'home', name: 'Home', systemPrompt: 'Be casual.', icon: '', background: '' }
 assert.deepEqual(parseProfiles({
   profiles: [work, home, { id: '', name: 'Bad' }, 'nope'],
   activeProfileId: 'home',
@@ -32,4 +34,6 @@ assert.deepEqual(parseProfiles({
 }), { profiles: [work, home], activeProfileId: 'home' })
 assert.equal(parseProfiles({ profiles: [work, home], activeProfileId: 'missing' }).activeProfileId, 'work')
 assert.equal(parseProfiles({ profiles: [{ id: 'a', name: 'A', systemPrompt: '' }] }).profiles[0].icon, '')
-assert.equal(parseProfiles({ profiles: [{ id: 'a', name: 'A', systemPrompt: '', icon: 1 }] }).profiles[0].icon, '')
+assert.equal(parseProfiles({ profiles: [{ id: 'a', name: 'A', systemPrompt: '' }] }).profiles[0].background, '')
+assert.equal(parseProfiles({ profiles: [{ id: 'a', name: 'A', systemPrompt: '', icon: 1, background: 1 }] }).profiles[0].icon, '')
+assert.equal(parseProfiles({ profiles: [{ id: 'a', name: 'A', systemPrompt: '', icon: 1, background: 1 }] }).profiles[0].background, '')
