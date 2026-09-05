@@ -839,8 +839,14 @@
     navigate(`/chat/${chat.id}`)
   }
 
+  function isEmptyChat(chat: Chat) {
+    return !chat.messages.length && !chat.prompt.trim() && !chat.pendingImages.length
+  }
+
   async function deleteChat(chat: Chat) {
-    if (!confirm(`Delete conversation "${chat.title}"? This cannot be undone.`)) return
+    const empty = isEmptyChat(chat)
+    if (empty && chats.filter((item) => item.profileId === chat.profileId).length < 2) return
+    if (!empty && !confirm(`Delete conversation "${chat.title}"? This cannot be undone.`)) return
     if (chat.id === activeChatId) stopResponse()
     try {
       await removeChats([chat.id])
@@ -878,7 +884,7 @@
         {#each visibleChats as chat (chat.id)}
           <div class="chat-list-item" class:active={page === 'chat' && activeChatId === chat.id}>
             <a href={`#/chat/${chat.id}`} aria-current={page === 'chat' && activeChatId === chat.id ? 'page' : undefined} title={chat.title}>{chat.title}</a>
-            <button class="icon-button" type="button" aria-label={`Delete conversation ${chat.title}`} title="Delete conversation" onclick={() => deleteChat(chat)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg></button>
+            <button class="icon-button" type="button" disabled={visibleChats.length < 2 && isEmptyChat(chat)} aria-label={`Delete conversation ${chat.title}`} title="Delete conversation" onclick={() => deleteChat(chat)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg></button>
           </div>
         {:else}
           <p class="sidebar-empty">No conversations yet.</p>

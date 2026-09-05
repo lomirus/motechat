@@ -355,9 +355,13 @@ svg {
   transition: background 150ms ease, border-color 150ms ease;
 }
 
-.icon-button:hover {
+.icon-button:hover:not(:disabled) {
   background: var(--surface-soft);
   border-color: var(--border);
+}
+.icon-button:disabled {
+  opacity: .45;
+  cursor: default;
 }
 .icon-button svg {
   width: 19px;
