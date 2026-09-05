@@ -135,6 +135,136 @@ svg {
   min-height: 100svh;
 }
 
+.app-shell.sidebar-visible {
+  margin-left: 264px;
+}
+
+.sidebar-visible .topbar,
+.sidebar-visible .composer-area {
+  left: 264px;
+}
+
+.chat-sidebar {
+  position: fixed;
+  z-index: 25;
+  inset: 0 auto 0 0;
+  width: 264px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 14px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.chat-sidebar > .model-select {
+  flex: 0 0 auto;
+}
+
+.chat-sidebar .model-select input {
+  text-overflow: ellipsis;
+}
+
+.sidebar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.sidebar-label,
+.sidebar-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sidebar-new,
+.sidebar-settings {
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: var(--surface-soft);
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chat-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.chat-list-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  border-radius: 10px;
+}
+
+.chat-list-item:hover,
+.chat-list-item.active,
+.sidebar-new:hover,
+.sidebar-settings:hover {
+  background: var(--surface-hover);
+}
+
+.chat-list-item a {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 0 12px 10px;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.chat-list-item .icon-button {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.storage-error {
+  position: relative;
+  z-index: 26;
+  margin: 72px 24px 0;
+  padding: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.loading-conversations {
+  padding: 32px;
+  color: var(--muted);
+}
+
+@media (max-width: 680px) {
+  .app-shell.sidebar-visible {
+    margin-left: 0;
+  }
+
+  .sidebar-visible .topbar,
+  .sidebar-visible .composer-area {
+    left: 0;
+  }
+
+  .chat-sidebar {
+    width: min(264px, calc(100vw - 56px));
+    box-shadow: var(--shadow);
+  }
+}
+
 .page-scrollbar {
   position: fixed;
   z-index: 30;
@@ -1185,7 +1315,8 @@ h1, h2, p {
 }
 
 .fields input,
-.fields textarea {
+.fields textarea,
+.chat-sidebar .model-select input {
   width: 100%;
   border: 1px solid var(--border-strong);
   border-radius: 11px;
@@ -1196,7 +1327,8 @@ h1, h2, p {
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
-.fields input {
+.fields input,
+.chat-sidebar .model-select input {
   height: 44px;
   padding: 0 13px;
 }
@@ -1207,7 +1339,8 @@ h1, h2, p {
   line-height: 1.5;
 }
 .fields input:focus,
-.fields textarea:focus {
+.fields textarea:focus,
+.chat-sidebar .model-select input:focus {
   border-color: var(--muted);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 12%, transparent);
 }
@@ -1266,14 +1399,15 @@ h1, h2, p {
   flex: 1 1 auto;
   min-width: 0;
 }
-.model-select input {
+.model-select input,
+.chat-sidebar .model-select input {
   min-width: 0;
   padding-right: 44px;
 }
 .model-select input[readonly] {
   cursor: pointer;
 }
-.fields .model-select-toggle {
+:is(.fields, .chat-sidebar) .model-select-toggle {
   position: absolute;
   inset: 0 0 auto auto;
   width: 44px;
@@ -1293,15 +1427,15 @@ h1, h2, p {
 .model-select-toggle[aria-expanded='true'] svg {
   transform: rotate(180deg);
 }
-.fields .model-select-toggle:focus-visible {
+:is(.fields, .chat-sidebar) .model-select-toggle:focus-visible {
   border-radius: 9px;
   outline: 0;
   box-shadow: inset 0 0 0 2px var(--border-strong);
 }
-.fields .model-select-toggle:hover:not(:disabled) {
+:is(.fields, .chat-sidebar) .model-select-toggle:hover:not(:disabled) {
   color: var(--text);
 }
-.fields .model-select-toggle:disabled {
+:is(.fields, .chat-sidebar) .model-select-toggle:disabled {
   opacity: .35;
   cursor: default;
 }
@@ -1319,7 +1453,7 @@ h1, h2, p {
   background: var(--surface);
   box-shadow: 0 12px 28px rgb(0 0 0 / 18%);
 }
-.fields .model-options button {
+:is(.fields, .chat-sidebar) .model-options button {
   width: 100%;
   min-height: 38px;
   padding: 8px 10px;
@@ -1330,9 +1464,9 @@ h1, h2, p {
   text-align: left;
   cursor: pointer;
 }
-.fields .model-options button:hover,
-.fields .model-options button:focus-visible,
-.fields .model-options button.selected {
+:is(.fields, .chat-sidebar) .model-options button:hover,
+:is(.fields, .chat-sidebar) .model-options button:focus-visible,
+:is(.fields, .chat-sidebar) .model-options button.selected {
   background: var(--surface-soft);
   outline: 0;
 }

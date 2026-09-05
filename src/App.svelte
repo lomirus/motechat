@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
+  import { loadChats, saveChat, removeChats, type Chat, type Message } from './lib/chats'
   import Code from './lib/Code.svelte'
   import Select from './lib/Select.svelte'
   import { configScriptHelp, createConnection, duplicateConnection, evaluateConnection, fieldsScriptHelp, parseConnections, type Connection } from './lib/connections'
@@ -31,7 +32,6 @@
   } from './lib/responses'
 
   type Theme = 'system' | 'light' | 'dark'
-  type Message = { role: 'user' | 'assistant'; content: string; images?: string[]; reasoning?: string; tokensPerSecond?: number; timeToFirstToken?: number }
 
   const storageKey = 'saga-settings' // Keep existing users' saved connections and preferences.
   const maxPendingImages = 8
@@ -53,6 +53,15 @@
     ['max', 'Max'],
   ]
 
+  let ready = false
+  let storageError = ''
+  let sidebarVisible = true
+  let chats: Chat[] = []
+  let activeChatId = ''
+  let controller: AbortController | undefined
+  let requestVersion = 0
+  $: visibleChats = chats.filter((chat) => chat.profileId === activeProfileId).sort((a, b) => b.updatedAt - a.updatedAt)
+  $: if (ready) persistChat(messages, prompt, pendingImages, tokenUsage, chatUsage, pendingUsage)
   let page: 'chat' | 'settings' = 'chat'
   let theme: Theme = 'system'
   let connections: Connection[] = parseConnections({}).connections
@@ -129,6 +138,8 @@
     try {
       const stored = parseJson(localStorage.getItem(storageKey) || '{}')
       if (isRecord(stored)) {
+        sidebarVisible = stored.sidebarVisible !== false
+        activeChatId = typeof stored.activeChatId === 'string' ? stored.activeChatId : ''
         theme = stored.theme === 'light' || stored.theme === 'dark' ? stored.theme : 'system'
         const parsedProfiles = parseProfiles(stored)
         profiles = parsedProfiles.profiles
@@ -143,6 +154,22 @@
       // Ignore malformed local preferences and keep safe defaults.
     }
     applyTheme(theme)
+    let mounted = true
+    void loadChats().then((saved) => {
+      if (!mounted) return
+      chats = saved.filter((chat) => profiles.some((profile) => profile.id === chat.profileId))
+    }).catch(() => {
+      storageError = 'Could not load local conversations. Reload the page to try again.'
+    }).finally(() => {
+      if (!mounted) return
+      const previous = chats.find((chat) => chat.id === activeChatId)
+      activeChatId = ''
+      if (previous) activateChat(previous)
+      else createChat()
+      ready = true
+      applyRoute()
+    })
+    window.addEventListener('hashchange', applyRoute)
 
     const resizeObserver = new ResizeObserver(updateScrollbar)
     resizeObserver.observe(document.body)
@@ -151,6 +178,9 @@
     updateScrollbar()
 
     return () => {
+      mounted = false
+      stopResponse()
+      window.removeEventListener('hashchange', applyRoute)
       resizeObserver.disconnect()
       window.removeEventListener('scroll', updateScrollbar)
       window.removeEventListener('resize', updateScrollbar)
@@ -282,38 +312,58 @@
 
   function switchProfile(id: string) {
     if (id === activeProfileId) return
+    stopResponse()
     persistActiveProfile()
     activeProfileId = id
     loadActiveProfile()
+    selectProfileChat()
     saveSettings()
   }
 
   function addProfile() {
+    stopResponse()
     persistActiveProfile()
     const profile = createProfile(profiles)
     profiles = [...profiles, profile]
     activeProfileId = profile.id
     loadActiveProfile()
+    selectProfileChat()
     saveSettings()
   }
 
-  function deleteProfile() {
-    if (profiles.length < 2 || !confirm(`Delete profile "${profileName}"?`)) return
-    profiles = profiles.filter((profile) => profile.id !== activeProfileId)
+  async function deleteProfile() {
+    if (profiles.length < 2 || !confirm(`Delete profile "${profileName}" and all its conversations?`)) return
+    stopResponse()
+    const deletedId = activeProfileId
+    try {
+      await removeChats(chats.filter((chat) => chat.profileId === deletedId).map((chat) => chat.id))
+    } catch {
+      storageError = 'Could not delete local conversations. Please try again.'
+      return
+    }
+    chats = chats.filter((chat) => chat.profileId !== deletedId)
+    profiles = profiles.filter((profile) => profile.id !== deletedId)
     loadActiveProfile()
+    selectProfileChat()
     saveSettings()
   }
 
   function saveSettings() {
     persistActiveProfile()
     persistActiveConnection()
-    localStorage.setItem(storageKey, JSON.stringify({
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({
       theme,
       connections,
       activeConnectionId,
       profiles,
       activeProfileId,
-    }))
+      activeChatId,
+      sidebarVisible,
+      }))
+    } catch {
+      storageError = 'Could not save local settings. Check browser storage and try again.'
+    }
   }
 
   function resizeTextarea(element: HTMLTextAreaElement) {
@@ -371,6 +421,7 @@
 
   async function addImages(files: File[], into: 'pending' | 'edit' = 'pending') {
     if (!files.length) return
+    const chatId = activeChatId
     attaching = true
     try {
       let next = [...(into === 'edit' ? editImages : pendingImages)]
@@ -380,6 +431,7 @@
           break
         }
         next = [...next, await readImage(file)]
+        if (chatId !== activeChatId) return
         if (into === 'edit') editImages = next
         else pendingImages = next
         error = ''
@@ -540,16 +592,22 @@
   async function requestResponse(nextMessages: Message[]) {
     error = ''
     copiedMessage = null
+    const version = ++requestVersion
+    controller = new AbortController()
+    const signal = controller.signal
+    const live = evaluated.effective
+    const instructions = systemPrompt.trim()
     loading = true
     pendingUsage = undefined
     await showMessages(nextMessages)
+    if (version !== requestVersion) return
     const requestedAt = performance.now()
 
     try {
-      const live = evaluated.effective
       const reasoning = reasoningConfig(live.reasoningEffort)
       const response = await fetch(responsesUrl(live.baseUrl), {
         method: 'POST',
+        signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${live.apiKey.trim()}`,
@@ -558,10 +616,11 @@
           model: live.model.trim(),
           input: toResponseInput(nextMessages),
           stream: true,
-          ...(systemPrompt.trim() ? { instructions: systemPrompt.trim() } : {}),
+          ...(instructions ? { instructions } : {}),
           ...(reasoning ? { reasoning } : {}),
         }),
       })
+      if (version !== requestVersion) return
       if (!response.ok) {
         const data = await readResponseJson(response).catch((): unknown => undefined)
         throw new Error(responseErrorMessage(data) || `Request failed (${response.status}).`)
@@ -577,6 +636,7 @@
         let timeToFirstToken: number | undefined
         const assistant = () => ({ role: 'assistant' as const, content: reply, reasoning, tokensPerSecond, timeToFirstToken })
         for await (const event of responseDeltas(response.body)) {
+          if (version !== requestVersion) return
           if (event.type === 'usage') {
             tokenUsage = event.usage
             pendingUsage = event.usage
@@ -597,6 +657,7 @@
         if (!reply) throw new Error('The service returned an empty response.')
       } else {
         const data = await readResponseJson(response).catch((): unknown => undefined)
+        if (version !== requestVersion) return
         tokenUsage = extractUsage(data)
         pendingUsage = tokenUsage
         await showMessages([...nextMessages, {
@@ -606,11 +667,14 @@
         }])
       }
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Request failed. Please try again.'
+      if (version === requestVersion) error = cause instanceof Error ? cause.message : 'Request failed. Please try again.'
     } finally {
-      if (pendingUsage) chatUsage = addUsage(chatUsage, pendingUsage)
-      pendingUsage = undefined
-      loading = false
+      if (version === requestVersion) {
+        if (pendingUsage) chatUsage = addUsage(chatUsage, pendingUsage)
+        pendingUsage = undefined
+        loading = false
+        controller = undefined
+      }
     }
   }
 
@@ -618,6 +682,7 @@
     const content = prompt.trim()
     if ((!content && !pendingImages.length) || loading || attaching || !requestReady()) return
 
+    const chatId = activeChatId
     const nextMessages: Message[] = [...messages, {
       role: 'user',
       content,
@@ -626,7 +691,8 @@
     prompt = ''
     pendingImages = []
     await tick()
-    resizeTextarea(textarea)
+    if (chatId !== activeChatId) return
+    if (textarea) resizeTextarea(textarea)
     await requestResponse(nextMessages)
   }
 
@@ -679,17 +745,123 @@
     await requestResponse([...messages.slice(0, index), { role: 'user', content, ...(images.length ? { images } : {}) }])
   }
 
-  function newChat() {
-    messages = []
-    prompt = ''
-    pendingImages = []
-    error = ''
-    tokenUsage = undefined
-    chatUsage = undefined
+  function persistChat(next: Message[], draft: string, images: string[], usage?: TokenUsage, total?: TokenUsage, pending?: TokenUsage) {
+    const current = chats.find((chat) => chat.id === activeChatId)
+    if (!current) return
+    const first = next.find((message) => message.role === 'user')
+    const chat: Chat = {
+      ...current,
+      title: first ? (first.content.trim() || 'Image conversation').slice(0, 80) : 'New chat',
+      updatedAt: next !== current.messages ? Date.now() : current.updatedAt,
+      messages: next,
+      prompt: draft,
+      pendingImages: images,
+      tokenUsage: usage,
+      chatUsage: pending ? addUsage(total, pending) : total,
+    }
+    chats = chats.map((item) => item.id === chat.id ? chat : item)
+    void saveChat(chat).catch(() => {
+      storageError = 'Could not save this conversation locally. Check browser storage; keep this page open to retain your messages.'
+    })
+  }
+
+  function stopResponse() {
+    requestVersion += 1
+    controller?.abort()
+    controller = undefined
+    if (pendingUsage) chatUsage = addUsage(chatUsage, pendingUsage)
     pendingUsage = undefined
+    loading = false
+    if (ready) persistChat(messages, prompt, pendingImages, tokenUsage, chatUsage)
+  }
+
+  function activateChat(chat: Chat) {
+    stopResponse()
+    persistActiveProfile()
+    activeChatId = chat.id
+    activeProfileId = chat.profileId
+    loadActiveProfile()
+    messages = chat.messages
+    prompt = chat.prompt
+    pendingImages = chat.pendingImages
+    tokenUsage = chat.tokenUsage
+    chatUsage = chat.chatUsage
+    error = ''
+    copiedMessage = null
     profileMenuOpen = false
     cancelEdit()
+    saveSettings()
+    void tick().then(() => {
+      if (textarea) resizeTextarea(textarea)
+      updateScrollbar()
+    })
   }
+
+  function createChat() {
+    const chat: Chat = { id: crypto.randomUUID(), profileId: activeProfileId, title: 'New chat', updatedAt: Date.now(), messages: [], prompt: '', pendingImages: [] }
+    chats = [chat, ...chats]
+    activateChat(chat)
+    return chat
+  }
+
+  function navigate(path: string, replace = false) {
+    const hash = `#${path}`
+    if (replace) history.replaceState(null, '', hash)
+    else if (location.hash !== hash) history.pushState(null, '', hash)
+    applyRoute()
+  }
+
+  function applyRoute() {
+    if (!ready) return
+    const route = location.hash.slice(1)
+    if (route === '/settings') {
+      profileMenuOpen = false
+      page = 'settings'
+      return
+    }
+    const id = route.startsWith('/chat/') ? route.slice(6) : activeChatId
+    let chat = chats.find((item) => item.id === id)
+    if (!chat) chat = chats.find((item) => item.profileId === activeProfileId) ?? createChat()
+    if (chat.id !== activeChatId || page === 'settings' || messages !== chat.messages) activateChat(chat)
+    page = 'chat'
+    if (route !== `/chat/${chat.id}`) history.replaceState(null, '', `#/chat/${chat.id}`)
+  }
+
+  function selectProfileChat() {
+    const chat = chats.filter((item) => item.profileId === activeProfileId).sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? createChat()
+    activateChat(chat)
+    if (page === 'chat') navigate(`/chat/${chat.id}`)
+  }
+
+  function newChat() {
+    if (attaching) return
+    const chat = createChat()
+    navigate(`/chat/${chat.id}`)
+  }
+
+  async function deleteChat(chat: Chat) {
+    if (!confirm(`Delete conversation "${chat.title}"? This cannot be undone.`)) return
+    if (chat.id === activeChatId) stopResponse()
+    try {
+      await removeChats([chat.id])
+    } catch {
+      storageError = 'Could not delete this conversation. Please try again.'
+      return
+    }
+    chats = chats.filter((item) => item.id !== chat.id)
+    if (chat.id === activeChatId) {
+      activeChatId = ''
+      selectProfileChat()
+      if (page === 'chat') navigate(`/chat/${activeChatId}`, true)
+    }
+  }
+
+  function toggleSidebar() {
+    sidebarVisible = !sidebarVisible
+    saveSettings()
+    void tick().then(updateScrollbar)
+  }
+
 </script>
 
 <svelte:head>
@@ -697,19 +869,43 @@
   <meta name="description" content="A focused, private AI conversation interface." />
 </svelte:head>
 
-<div class="app-shell" class:settings-page={page === 'settings'}>
+{#if ready}
+<div class="app-shell" class:sidebar-visible={sidebarVisible} class:settings-page={page === 'settings'}>
+  {#if sidebarVisible}
+    <aside class="chat-sidebar" id="chat-sidebar" aria-label="Conversations">
+      <div class="sidebar-heading"><strong>Conversations</strong><button class="icon-button" type="button" aria-label="Hide sidebar" onclick={toggleSidebar}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button></div>
+      <label class="sidebar-label" for="sidebar-profile">Profile</label>
+      <Select id="sidebar-profile" value={activeProfileId} options={profiles.map((profile): [string, string] => [profile.id, profile.name])} listLabel="Profiles" listName="profile groups" onchange={switchProfile} />
+      <button class="sidebar-new" type="button" onclick={newChat}>+ New chat</button>
+      <nav class="chat-list" aria-label={`${profileName} conversations`}>
+        {#each visibleChats as chat (chat.id)}
+          <div class="chat-list-item" class:active={page === 'chat' && activeChatId === chat.id}>
+            <a href={`#/chat/${chat.id}`} aria-current={page === 'chat' && activeChatId === chat.id ? 'page' : undefined} title={chat.title}>{chat.title}</a>
+            <button class="icon-button" type="button" aria-label={`Delete conversation ${chat.title}`} title="Delete conversation" onclick={() => deleteChat(chat)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg></button>
+          </div>
+        {:else}
+          <p class="sidebar-empty">No conversations yet.</p>
+        {/each}
+      </nav>
+      <a class="sidebar-settings" href="#/settings" aria-current={page === 'settings' ? 'page' : undefined}>Settings</a>
+    </aside>
+  {/if}
+  {#if storageError}<div class="storage-error" role="alert">{storageError}</div>{/if}
   <header class="topbar">
-    <button class="brand" type="button" aria-label="MoteChat — Back to chat" onclick={() => (page = 'chat')}>
+    <div class="top-actions">
+      <button class="icon-button" type="button" aria-label={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'} aria-expanded={sidebarVisible} aria-controls="chat-sidebar" title={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'} onclick={toggleSidebar}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+    <button class="brand" type="button" aria-label="MoteChat — Back to chat" onclick={() => navigate(`/chat/${activeChatId}`)}>
       <img class="brand-mark" src={`${import.meta.env.BASE_URL}logo.svg`} alt="" width="28" height="28" />
       <span>MoteChat</span>
     </button>
 
+    </div>
     {#if page === 'chat'}
       <div class="top-actions">
         <button class="icon-button" type="button" aria-label="New chat" title="New chat" onclick={newChat}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
         </button>
-        <button class="icon-button" type="button" aria-label="Open Settings" title="Settings" onclick={() => { profileMenuOpen = false; page = 'settings' }}>
+        <button class="icon-button" type="button" aria-label="Open Settings" title="Settings" onclick={() => navigate('/settings')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
         </button>
       </div>
@@ -999,12 +1195,12 @@
         </div>
       </form>
       {#if error || evaluated.fieldsError || evaluated.configError}
-        <p class="composer-error" role="alert">{error || evaluated.fieldsError || evaluated.configError} {#if evaluated.fieldsError || evaluated.configError || !evaluated.effective.apiKey.trim() || !evaluated.effective.baseUrl.trim()}<button type="button" onclick={() => (page = 'settings')}>Open Settings</button>{/if}</p>
+        <p class="composer-error" role="alert">{error || evaluated.fieldsError || evaluated.configError} {#if evaluated.fieldsError || evaluated.configError || !evaluated.effective.apiKey.trim() || !evaluated.effective.baseUrl.trim()}<button type="button" onclick={() => navigate('/settings')}>Open Settings</button>{/if}</p>
       {/if}
     </div>
   {:else}
     <main class="settings">
-      <button class="back-button" type="button" onclick={() => (page = 'chat')}>
+      <button class="back-button" type="button" onclick={() => navigate(`/chat/${activeChatId}`)}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
         Back to chat
       </button>
@@ -1334,6 +1530,10 @@
     </main>
   {/if}
 </div>
+
+{:else}
+  <p class="loading-conversations">Loading conversations…</p>
+{/if}
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
