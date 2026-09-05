@@ -700,7 +700,7 @@
 <div class="app-shell" class:settings-page={page === 'settings'}>
   <header class="topbar">
     <button class="brand" type="button" aria-label="MoteChat — Back to chat" onclick={() => (page = 'chat')}>
-      <img class="brand-mark" src="/logo.svg" alt="" width="28" height="28" />
+      <img class="brand-mark" src={`${import.meta.env.BASE_URL}logo.svg`} alt="" width="28" height="28" />
       <span>MoteChat</span>
     </button>
 
