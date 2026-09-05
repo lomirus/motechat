@@ -33,7 +33,7 @@
   type Theme = 'system' | 'light' | 'dark'
   type Message = { role: 'user' | 'assistant'; content: string; images?: string[]; reasoning?: string; tokensPerSecond?: number; timeToFirstToken?: number }
 
-  const storageKey = 'saga-settings'
+  const storageKey = 'saga-settings' // Keep existing users' saved connections and preferences.
   const maxPendingImages = 8
   const contextRing = 2 * Math.PI * 9
   const usageLabels: Record<string, string> = {
@@ -693,15 +693,15 @@
 </script>
 
 <svelte:head>
-  <title>Saga — AI assistant</title>
+  <title>MoteChat — AI assistant</title>
   <meta name="description" content="A focused, private AI conversation interface." />
 </svelte:head>
 
 <div class="app-shell" class:settings-page={page === 'settings'}>
   <header class="topbar">
-    <button class="brand" type="button" aria-label="Back to chat" onclick={() => (page = 'chat')}>
-      <span class="brand-mark" aria-hidden="true"></span>
-      <span>Saga</span>
+    <button class="brand" type="button" aria-label="MoteChat — Back to chat" onclick={() => (page = 'chat')}>
+      <img class="brand-mark" src="/logo.svg" alt="" width="28" height="28" />
+      <span>MoteChat</span>
     </button>
 
     {#if page === 'chat'}
@@ -908,7 +908,7 @@
             {/each}
           </div>
         {/if}
-        <textarea bind:this={textarea} bind:value={prompt} rows="1" aria-label="Message" placeholder="Message Saga" oninput={(event) => resizeTextarea(event.currentTarget)} onkeydown={handleKeydown} onpaste={handlePaste}></textarea>
+        <textarea bind:this={textarea} bind:value={prompt} rows="1" aria-label="Message" placeholder="Message MoteChat" oninput={(event) => resizeTextarea(event.currentTarget)} onkeydown={handleKeydown} onpaste={handlePaste}></textarea>
         <div class="composer-footer">
           <button
             class="attach-button"
@@ -1018,7 +1018,7 @@
         <section class="settings-card" aria-labelledby="appearance-title">
           <div class="setting-copy">
             <h2 id="appearance-title">Appearance</h2>
-            <p>Choose how Saga looks on this device.</p>
+            <p>Choose how MoteChat looks on this device.</p>
           </div>
           <div class="theme-picker" aria-label="Theme">
             <button class:active={theme === 'system'} type="button" onclick={() => chooseTheme('system')}>

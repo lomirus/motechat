@@ -1,4 +1,6 @@
-# MoteTalk
+<img src="public/logo.svg" alt="MoteChat logo" width="80" height="80" />
+
+# MoteChat
 
 A small, private AI chat client for the OpenAI Responses API and compatible endpoints.
 

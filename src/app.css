@@ -186,12 +186,9 @@ svg {
 }
 
 .brand-mark {
-  overflow: hidden;
+  display: block;
   width: 28px;
   height: 28px;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 7%);
 }
 .top-actions {
   display: flex;
