@@ -454,7 +454,7 @@
   }
 
   async function encodeBackground(file: File) {
-    const problem = imageFileError(file)
+    const problem = imageFileError(file, Infinity)
     if (problem) throw new Error(problem)
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
     try {

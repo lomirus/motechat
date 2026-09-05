@@ -238,11 +238,11 @@ export function outputSpeed(tokens: number, elapsedMs: number): number | undefin
 
 const maxImageBytes = 10 * 1024 * 1024
 
-export function imageFileError(file: { type: string; size: number }): string | undefined {
+export function imageFileError(file: { type: string; size: number }, maxBytes = maxImageBytes): string | undefined {
   if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
     return 'Choose a photo, screenshot, or other image file.'
   }
-  if (file.size > maxImageBytes) return 'Images must be 10 MB or smaller.'
+  if (file.size > maxBytes) return 'Images must be 10 MB or smaller.'
 }
 
 export const reasoningEfforts = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const

@@ -149,6 +149,7 @@ assert.equal(imageFileError({ type: 'image/png', size: 12 }), undefined)
 assert.equal(imageFileError({ type: 'image/svg+xml', size: 12 }), 'Choose a photo, screenshot, or other image file.')
 assert.equal(imageFileError({ type: 'text/plain', size: 12 }), 'Choose a photo, screenshot, or other image file.')
 assert.equal(imageFileError({ type: 'image/jpeg', size: 10 * 1024 * 1024 + 1 }), 'Images must be 10 MB or smaller.')
+assert.equal(imageFileError({ type: 'image/jpeg', size: 10 * 1024 * 1024 + 1 }, Infinity), undefined)
 assert.deepEqual(toResponseInput([
   { role: 'user', content: 'Hi' },
   { role: 'user', content: 'Look', images: ['data:image/png;base64,abc'] },
