@@ -875,11 +875,17 @@
   <meta name="description" content="A focused, private AI conversation interface." />
 </svelte:head>
 
+{#snippet profileAvatar()}
+  <span class="avatar" aria-hidden="true">
+    {#if profileIcon}<img src={profileIcon} alt="" />{:else}<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.8 19c1-3.4 3.2-5.2 6.2-5.2s5.2 1.8 6.2 5.2"/></svg>{/if}
+  </span>
+{/snippet}
+
 {#if ready}
 <div class="app-shell" class:sidebar-visible={sidebarVisible} class:settings-page={page === 'settings'}>
     <aside class="chat-sidebar" id="chat-sidebar" aria-label="Conversations" aria-hidden={!sidebarVisible} inert={!sidebarVisible}>
       <label class="sidebar-label" for="sidebar-profile">Profile</label>
-      <Select id="sidebar-profile" value={activeProfileId} options={profiles.map((profile): [string, string] => [profile.id, profile.name])} listLabel="Profiles" listName="profile groups" onchange={switchProfile} />
+      <Select id="sidebar-profile" value={activeProfileId} options={profiles.map((profile): [string, string, string] => [profile.id, profile.name, profile.icon])} listLabel="Profiles" listName="profile groups" onchange={switchProfile} />
       <nav class="chat-list" aria-label={`${profileName} conversations`}>
         {#each visibleChats as chat (chat.id)}
           <div class="chat-list-item" class:active={page === 'chat' && activeChatId === chat.id}>
@@ -975,9 +981,7 @@
           {#each messages as message, index}
             <article class:assistant={message.role === 'assistant'} class:user={message.role === 'user'}>
               {#if message.role === 'assistant'}
-                <span class="avatar" aria-hidden="true">
-                  {#if profileIcon}<img src={profileIcon} alt="" />{/if}
-                </span>
+                {@render profileAvatar()}
               {/if}
               <div class="message-block" class:editing={message.role === 'user' && editingMessage === index}>
                 {#if message.role === 'user' && editingMessage === index}
@@ -1065,9 +1069,7 @@
           {/each}
           {#if loading && messages[messages.length - 1]?.role !== 'assistant'}
             <article class="assistant">
-              <span class="avatar" aria-hidden="true">
-                {#if profileIcon}<img src={profileIcon} alt="" />{/if}
-              </span>
+              {@render profileAvatar()}
               <div class="typing" aria-label="AI is responding"><i></i><i></i><i></i></div>
             </article>
           {/if}
@@ -1447,7 +1449,7 @@
                 <Select
                   id="profile-input"
                   value={activeProfileId}
-                  options={profiles.map((profile): [string, string] => [profile.id, profile.name])}
+                  options={profiles.map((profile): [string, string, string] => [profile.id, profile.name, profile.icon])}
                   listLabel="Profiles"
                   listName="profile list"
                   onchange={switchProfile}

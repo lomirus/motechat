@@ -714,11 +714,20 @@ h1, h2, p {
   border-radius: 50%;
   background: var(--surface-soft);
 }
-.avatar img {
+.avatar img,
+.model-select-face img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.avatar svg,
+.model-select-face svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 18%;
+  color: var(--muted);
 }
 
 .typing {
@@ -1406,8 +1415,28 @@ h1, h2, p {
   min-width: 0;
   padding-right: 44px;
 }
+.model-select.has-face input,
+.chat-sidebar .model-select.has-face input {
+  padding-left: 42px;
+}
 .model-select input[readonly] {
   cursor: pointer;
+}
+.model-select-face {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-soft);
+}
+.model-select > .model-select-face {
+  position: absolute;
+  top: 11px;
+  left: 11px;
+  z-index: 1;
+  pointer-events: none;
 }
 :is(.fields, .chat-sidebar) .model-select-toggle {
   position: absolute;
@@ -1456,6 +1485,9 @@ h1, h2, p {
   box-shadow: 0 12px 28px rgb(0 0 0 / 18%);
 }
 :is(.fields, .chat-sidebar) .model-options button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   min-height: 38px;
   padding: 8px 10px;

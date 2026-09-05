@@ -1,5 +1,5 @@
 <script lang="ts">
-  type Option = string | readonly [string, string]
+  type Option = string | readonly [string, string] | readonly [string, string, string]
 
   let {
     id,
@@ -23,8 +23,17 @@
 
   let open = $state(false)
 
-  function entry(option: Option) {
-    return typeof option === 'string' ? [option, option] as const : option
+  function entry(option: Option): readonly [string, string, string] {
+    if (typeof option === 'string') return [option, option, '']
+    return [option[0], option[1], option[2] ?? '']
+  }
+
+  function iconFor(current: string) {
+    for (const option of options) {
+      const [optionValue, , optionIcon] = entry(option)
+      if (optionValue === current) return optionIcon
+    }
+    return ''
   }
 
   function labelFor(current: string) {
@@ -34,6 +43,8 @@
     }
     return current
   }
+
+  const faces = $derived(options.some((option) => Array.isArray(option) && option.length > 2))
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') open = false
@@ -56,10 +67,14 @@
 
 <div
   class="model-select"
+  class:has-face={faces}
   onfocusout={(event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) open = false
   }}
 >
+  {#if faces}
+    {@render face(iconFor(value))}
+  {/if}
   {#if editable}
     <input
       {id}
@@ -105,15 +120,25 @@
       }}
     >
       {#each options as option}
-        {@const [optionValue, optionLabel] = entry(option)}
+        {@const [optionValue, optionLabel, optionIcon] = entry(option)}
         <button
           class:selected={optionValue === value}
           type="button"
           role="option"
           aria-selected={optionValue === value}
           onclick={() => choose(optionValue)}
-        >{optionLabel}</button>
+        >{#if faces}{@render face(optionIcon)}{/if}{optionLabel}</button>
       {/each}
     </div>
   {/if}
 </div>
+
+{#snippet face(src: string)}
+  <span class="model-select-face" aria-hidden="true">
+    {#if src}
+      <img src={src} alt="" />
+    {:else}
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.8 19c1-3.4 3.2-5.2 6.2-5.2s5.2 1.8 6.2 5.2"/></svg>
+    {/if}
+  </span>
+{/snippet}
