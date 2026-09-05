@@ -384,7 +384,6 @@ svg {
 
 .welcome {
   width: min(680px, 100%);
-  margin-top: -5vh;
   text-align: center;
   animation: enter 450ms ease both;
 }
@@ -393,38 +392,26 @@ h1, h2, p {
   margin: 0;
 }
 
-.welcome h1 {
-  font-size: clamp(32px, 4vw, 44px);
-  line-height: 1.08;
-  letter-spacing: -0.045em;
-  font-weight: 640;
-}
-
-.welcome > p {
-  margin-top: 13px;
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1.5;
-}
-
 .welcome-profile {
   position: relative;
   width: fit-content;
-  margin: 28px auto 0;
+  max-width: 100%;
+  margin: 0 auto;
 }
 .welcome-profile > button {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   max-width: 100%;
-  height: 36px;
-  padding: 0 14px;
+  height: 48px;
+  padding: 0 16px 0 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
 }
 .welcome-profile > button:hover:not(:disabled) {
@@ -434,12 +421,17 @@ h1, h2, p {
 .welcome-profile > button:disabled {
   cursor: default;
 }
-.welcome-profile > button svg {
-  width: 16px;
+.welcome-profile .avatar {
+  width: 28px;
+  height: 28px;
+}
+.welcome-profile-chevron {
+  flex: 0 0 auto;
+  width: 18px;
   color: var(--muted);
   transition: transform 150ms ease;
 }
-.welcome-profile > button[aria-expanded='true'] svg {
+.welcome-profile > button[aria-expanded='true'] .welcome-profile-chevron {
   transform: rotate(180deg);
 }
 .welcome-profile-list {
@@ -447,10 +439,11 @@ h1, h2, p {
   z-index: 20;
   top: calc(100% + 6px);
   left: 50%;
-  min-width: max(100%, 160px);
+  width: max-content;
+  min-width: 100%;
   display: grid;
   gap: 4px;
-  max-height: 220px;
+  max-height: 240px;
   padding: 6px;
   overflow-y: auto;
   border: 1px solid var(--border);
@@ -460,15 +453,18 @@ h1, h2, p {
   transform: translateX(-50%);
 }
 .welcome-profile-list button {
-  width: 100%;
-  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
   padding: 8px 12px;
   border: 0;
   border-radius: 9px;
   background: transparent;
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
 }
 .welcome-profile-list button:hover,
@@ -874,17 +870,16 @@ h1, h2, p {
 }
 
 .composer-switch {
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 32px;
+  height: 36px;
   padding: 0 0 0 10px;
   border: 1px solid var(--border);
   border-radius: 9px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   user-select: none;
 }
 .composer-switch > label {
@@ -895,16 +890,18 @@ h1, h2, p {
   display: none;
 }
 .composer-switch .model-select input {
-  width: 110px;
-  height: 30px;
+  width: auto;
+  min-width: 4ch;
+  height: 34px;
   padding: 0 26px 0 0;
   border: 0;
   outline: none;
   background: transparent;
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  text-overflow: ellipsis;
+  field-sizing: content;
+  white-space: nowrap;
   cursor: pointer;
   user-select: none;
 }
@@ -916,7 +913,7 @@ h1, h2, p {
   position: absolute;
   inset: 0 0 auto auto;
   width: 26px;
-  height: 30px;
+  height: 34px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -942,17 +939,16 @@ h1, h2, p {
   left: 0;
   width: max-content;
   min-width: 100%;
-  max-width: 240px;
+  max-width: none;
 }
 .composer-switch .model-options button {
-  width: 100%;
   min-height: 34px;
   padding: 7px 10px;
   border: 0;
   border-radius: 7px;
   background: transparent;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: 13px;
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
@@ -1789,15 +1785,6 @@ h1, h2, p {
   }
   .chat.has-attachments {
     padding-bottom: 242px;
-  }
-  .welcome {
-    margin-top: -2vh;
-  }
-  .welcome h1 {
-    font-size: 34px;
-  }
-  .welcome > p {
-    font-size: 14px;
   }
   .messages {
     margin-top: 10px;

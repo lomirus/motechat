@@ -875,10 +875,14 @@
   <meta name="description" content="A focused, private AI conversation interface." />
 </svelte:head>
 
-{#snippet profileAvatar()}
+{#snippet profileFace(src: string)}
   <span class="avatar" aria-hidden="true">
-    {#if profileIcon}<img src={profileIcon} alt="" />{:else}<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.8 19c1-3.4 3.2-5.2 6.2-5.2s5.2 1.8 6.2 5.2"/></svg>{/if}
+    {#if src}<img src={src} alt="" />{:else}<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.8 19c1-3.4 3.2-5.2 6.2-5.2s5.2 1.8 6.2 5.2"/></svg>{/if}
   </span>
+{/snippet}
+
+{#snippet profileAvatar()}
+  {@render profileFace(profileIcon)}
 {/snippet}
 
 {#if ready}
@@ -926,9 +930,7 @@
   {#if page === 'chat'}
     <main class="chat" class:has-messages={messages.length > 0} class:has-attachments={pendingImages.length > 0}>
       {#if messages.length === 0}
-        <section class="welcome" aria-labelledby="welcome-title">
-          <h1 id="welcome-title">How can I help?</h1>
-          <p>Ask a question, explore an idea, or get something done.</p>
+        <section class="welcome" aria-label="Profile">
           <div
             class="welcome-profile"
             onfocusout={(event) => {
@@ -944,9 +946,10 @@
               aria-controls="welcome-profile-options"
               onclick={() => (profileMenuOpen = !profileMenuOpen)}
             >
+              {@render profileAvatar()}
               {profileName}
               {#if profiles.length > 1}
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+                <svg class="welcome-profile-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
               {/if}
             </button>
             {#if profileMenuOpen}
@@ -970,7 +973,10 @@
                       profileMenuOpen = false
                       switchProfile(profile.id)
                     }}
-                  >{profile.name}</button>
+                  >
+                    {@render profileFace(profile.icon)}
+                    {profile.name}
+                  </button>
                 {/each}
               </div>
             {/if}
