@@ -901,16 +901,20 @@
     </button>
 
     </div>
-    {#if page === 'chat'}
-      <div class="top-actions">
+    <div class="top-actions">
+      {#if page === 'chat'}
         <button class="icon-button" type="button" aria-label="New chat" title="New chat" onclick={newChat}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
         </button>
         <button class="icon-button" type="button" aria-label="Open Settings" title="Settings" onclick={() => navigate('/settings')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
         </button>
-      </div>
-    {/if}
+      {:else}
+        <button class="icon-button" type="button" aria-label="Back to chat" title="Back to chat" onclick={() => navigate(`/chat/${activeChatId}`)}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+      {/if}
+    </div>
   </header>
 
   {#if page === 'chat'}
@@ -1201,11 +1205,6 @@
     </div>
   {:else}
     <main class="settings">
-      <button class="back-button" type="button" onclick={() => navigate(`/chat/${activeChatId}`)}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-        Back to chat
-      </button>
-
       <div class="settings-heading">
         <h1>Settings</h1>
         <p>Changes save automatically.</p>

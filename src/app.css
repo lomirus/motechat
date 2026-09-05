@@ -1178,7 +1178,6 @@ h1, h2, p {
   cursor: pointer;
 }
 .settings-page .topbar {
-  position: absolute;
   background: transparent;
   backdrop-filter: none;
 }
@@ -1187,26 +1186,6 @@ h1, h2, p {
   width: min(820px, calc(100% - 40px));
   margin: 0 auto;
   padding: 96px 0 80px;
-}
-
-.back-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-bottom: 44px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.back-button:hover {
-  color: var(--text);
-}
-.back-button svg {
-  width: 17px;
 }
 
 .settings-heading h1 {
@@ -1813,9 +1792,6 @@ h1, h2, p {
   .settings {
     width: min(100% - 30px, 820px);
     padding: 78px 0 60px;
-  }
-  .back-button {
-    margin-bottom: 34px;
   }
   .settings-heading h1 {
     font-size: 34px;
