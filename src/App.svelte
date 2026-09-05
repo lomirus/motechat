@@ -1132,28 +1132,30 @@
                     {/if}
                     {#if message.content}<div class="message-text">{message.content}</div>{/if}
                   </div>
-                  {#if message.role === 'assistant'}
-                    {@const timing = messageTiming(message)}
-                    {#if timing}
-                      <p class="message-speed">{timing}</p>
-                    {/if}
-                  {/if}
-                  <div class="message-actions">
-                    <button type="button" onclick={() => copyMessage(message.content, index)}>
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg>
-                      {copiedMessage === index ? 'Copied' : 'Copy'}
-                    </button>
+                  <div class="message-meta">
                     {#if message.role === 'assistant'}
-                      <button type="button" disabled={loading || editingMessage !== null} onclick={() => regenerateMessage(index)}>
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
-                        Regenerate
-                      </button>
-                    {:else}
-                      <button type="button" disabled={loading || editingMessage !== null} onclick={() => editMessage(index)}>
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
-                        Edit
-                      </button>
+                      {@const timing = messageTiming(message)}
+                      {#if timing}
+                        <p class="message-speed">{timing}</p>
+                      {/if}
                     {/if}
+                    <div class="message-actions">
+                      <button type="button" onclick={() => copyMessage(message.content, index)}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg>
+                        {copiedMessage === index ? 'Copied' : 'Copy'}
+                      </button>
+                      {#if message.role === 'assistant'}
+                        <button type="button" disabled={loading || editingMessage !== null} onclick={() => regenerateMessage(index)}>
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+                          Regenerate
+                        </button>
+                      {:else}
+                        <button type="button" disabled={loading || editingMessage !== null} onclick={() => editMessage(index)}>
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+                          Edit
+                        </button>
+                      {/if}
+                    </div>
                   </div>
                 {/if}
               </div>
