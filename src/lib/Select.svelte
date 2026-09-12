@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from './Icon.svelte'
   import { t } from './i18n'
 
   type Option = string | readonly [string, string] | readonly [string, string, string]
@@ -110,7 +111,7 @@
     aria-controls="{id}-options"
     onclick={() => (open = !open)}
   >
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+    <Icon name="chevron-down" />
   </button>
   {#if open}
     <div
@@ -143,7 +144,7 @@
     {#if src}
       <img src={src} alt="" />
     {:else}
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.8 19c1-3.4 3.2-5.2 6.2-5.2s5.2 1.8 6.2 5.2"/></svg>
+      <Icon name="user" />
     {/if}
   </span>
 {/snippet}

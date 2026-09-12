@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from './lib/Icon.svelte'
+  import ContextRing from './lib/ContextRing.svelte'
   import { onMount, tick } from 'svelte'
   import { loadChats, saveChat, removeChats, loadBackground, saveBackground, removeBackgrounds, type Chat, type Message } from './lib/chats'
   import Code from './lib/Code.svelte'
@@ -998,7 +1000,7 @@
 
 {#snippet profileFace(src: string)}
   <span class="avatar" aria-hidden="true">
-    {#if src}<img src={src} alt="" />{:else}<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.8 19c1-3.4 3.2-5.2 6.2-5.2s5.2 1.8 6.2 5.2"/></svg>{/if}
+    {#if src}<img src={src} alt="" />{:else}<Icon name="user" />{/if}
   </span>
 {/snippet}
 
@@ -1020,7 +1022,7 @@
         {#each visibleChats as chat (chat.id)}
           <div class="chat-list-item" class:active={page === 'chat' && activeChatId === chat.id}>
             <a href={`#/chat/${chat.id}`} aria-current={page === 'chat' && activeChatId === chat.id ? 'page' : undefined} title={chatTitle(chat, $t)}>{chatTitle(chat, $t)}</a>
-            <button class="icon-button" type="button" disabled={visibleChats.length < 2 && isEmptyChat(chat)} aria-label={$t("Delete conversation {name}", { name: chatTitle(chat, $t) })} title={$t("Delete conversation")} onclick={() => deleteChat(chat)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg></button>
+            <button class="icon-button" type="button" disabled={visibleChats.length < 2 && isEmptyChat(chat)} aria-label={$t("Delete conversation {name}", { name: chatTitle(chat, $t) })} title={$t("Delete conversation")} onclick={() => deleteChat(chat)}><Icon name="trash-simple" /></button>
           </div>
         {:else}
           <p class="sidebar-empty">{$t("No conversations yet.")}</p>
@@ -1030,7 +1032,7 @@
   {#if storageError}<div class="storage-error" role="alert">{$t(storageError)}</div>{/if}
   <header class="topbar">
     <div class="top-actions">
-      <button class="icon-button" type="button" aria-label={sidebarVisible ? $t("Hide sidebar") : $t("Show sidebar")} aria-expanded={sidebarVisible} aria-controls="chat-sidebar" title={sidebarVisible ? $t("Hide sidebar") : $t("Show sidebar")} onclick={toggleSidebar}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+      <button class="icon-button" type="button" aria-label={sidebarVisible ? $t("Hide sidebar") : $t("Show sidebar")} aria-expanded={sidebarVisible} aria-controls="chat-sidebar" title={sidebarVisible ? $t("Hide sidebar") : $t("Show sidebar")} onclick={toggleSidebar}><Icon name="panel-left" /></button>
     <button class="brand" type="button" aria-label={$t("MoteChat — Back to chat")} onclick={() => navigate(`/chat/${activeChatId}`)}>
       <img class="brand-mark" src={`${import.meta.env.BASE_URL}logo.svg`} alt="" width="28" height="28" />
       <span>MoteChat</span>
@@ -1040,14 +1042,14 @@
     <div class="top-actions">
       {#if page === 'chat'}
         <button class="icon-button" type="button" aria-label={$t("New chat")} title={$t("New chat")} onclick={newChat}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+          <Icon name="edit" />
         </button>
         <button class="icon-button" type="button" aria-label={$t("Open Settings")} title={$t("Settings")} onclick={() => navigate('/settings')}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+          <Icon name="settings" />
         </button>
       {:else}
         <button class="icon-button" type="button" aria-label={$t("Back to chat")} title={$t("Back to chat")} onclick={() => navigate(`/chat/${activeChatId}`)}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          <Icon name="chevron-left" />
         </button>
       {/if}
     </div>
@@ -1075,7 +1077,7 @@
               {@render profileAvatar()}
               {profileName}
               {#if profiles.length > 1}
-                <svg class="welcome-profile-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+                <Icon name="chevron-down" class="welcome-profile-chevron" />
               {/if}
             </button>
             {#if profileMenuOpen}
@@ -1123,7 +1125,7 @@
                         <div class="composer-attachment">
                           <img src={src} alt={$t("Attachment")} />
                           <button type="button" aria-label={$t("Remove image")} onclick={() => removeImage(imageIndex, 'edit')}>
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                            <Icon name="close" />
                           </button>
                         </div>
                       {/each}
@@ -1148,7 +1150,7 @@
                       title={$t("Add image")}
                       onclick={() => pickImages('edit')}
                     >
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+                      <Icon name="image" />
                     </button>
                     <button type="button" onclick={cancelEdit}>{$t("Cancel")}</button>
                     <button class="save-edit" type="button" disabled={(!editPrompt.trim() && !editImages.length) || loading || attaching} onclick={() => saveEdit(index)}>{$t("Save & submit")}</button>
@@ -1162,7 +1164,7 @@
                         ontoggle={(event) => syncStreamingReasoningOpen(index, event.currentTarget)}
                       >
                         <summary>
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>{$t("Reasoning")}
+                          <Icon name="chevron-right" />{$t("Reasoning")}
                         </summary>
                         <div>{message.reasoning}</div>
                       </details>
@@ -1182,17 +1184,17 @@
                     {/if}
                     <div class="message-actions">
                       <button type="button" onclick={() => copyMessage(message.content, index)}>
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg>
+                        <Icon name="copy" />
                         {copiedMessage === index ? $t("Copied") : $t("Copy")}
                       </button>
                       {#if message.role === 'assistant'}
                         <button type="button" disabled={loading || editingMessage !== null} onclick={() => regenerateMessage(index)}>
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+                          <Icon name="regenerate" />
                           {$t("Regenerate")}
                         </button>
                       {:else}
                         <button type="button" disabled={loading || editingMessage !== null} onclick={() => editMessage(index)}>
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+                          <Icon name="edit" />
                           {$t("Edit")}
                         </button>
                       {/if}
@@ -1240,7 +1242,7 @@
               <div class="composer-attachment">
                 <img src={src} alt={$t("Attachment")} />
                 <button type="button" aria-label={$t("Remove image")} onclick={() => removeImage(index)}>
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  <Icon name="close" />
                 </button>
               </div>
             {/each}
@@ -1256,7 +1258,7 @@
             title={$t("Add image")}
             onclick={() => pickImages('pending')}
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+            <Icon name="image" />
           </button>
           {#each evaluated.fields.filter((field) => field.options.length) as field (field.id)}
             <div class="composer-switch">
@@ -1285,19 +1287,7 @@
                 aria-valuenow={meter.used}
                 aria-valuetext={meter.limit ? `${meter.percent}%` : $t("Unlimited")}
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle class="track" cx="12" cy="12" r="9"></circle>
-                  {#each meter.ring as seg}
-                    <circle
-                      class="seg {seg.key}"
-                      cx="12"
-                      cy="12"
-                      r="9"
-                      stroke-dasharray="{seg.dash} {contextRing}"
-                      stroke-dashoffset={-seg.offset}
-                    ></circle>
-                  {/each}
-                </svg>
+                <ContextRing segments={meter.ring} circumference={contextRing} />
                 <span class="context-meter-tip">
                   <span class="context-meter-head">
                     <strong>{meter.limit ? `${meter.percent}%` : $t("Unlimited")}</strong>
@@ -1331,7 +1321,7 @@
               </span>
             {/if}
             <button class="send-button" type="submit" disabled={(!prompt.trim() && !pendingImages.length) || loading || attaching} aria-label={$t("Send message")}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19V5"/><path d="m6 11 6-6 6 6"/></svg>
+              <Icon name="arrow-up" />
             </button>
           </div>
         </div>
@@ -1372,15 +1362,15 @@
           </div>
           <div class="theme-picker" aria-label={$t("Theme")}>
             <button class:active={theme === 'system'} type="button" onclick={() => chooseTheme('system')}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+              <Icon name="monitor" />
               {$t("System")}
             </button>
             <button class:active={theme === 'light'} type="button" onclick={() => chooseTheme('light')}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+              <Icon name="sun" />
               {$t("Light")}
             </button>
             <button class:active={theme === 'dark'} type="button" onclick={() => chooseTheme('dark')}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 15.3A9 9 0 0 1 8.7 3.2 9 9 0 1 0 20.8 15.3Z"/></svg>
+              <Icon name="moon" />
               {$t("Dark")}
             </button>
           </div>
@@ -1410,7 +1400,7 @@
                   title={$t("New connection")}
                   onclick={addConnection}
                 >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                  <Icon name="plus" />
                 </button>
                 <button
                   class="profile-action"
@@ -1419,7 +1409,7 @@
                   title={$t("Duplicate connection")}
                   onclick={copyConnection}
                 >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10v10H9z"/><path d="M5 15V5h10"/></svg>
+                  <Icon name="duplicate" />
                 </button>
                 <button
                   class="profile-action"
@@ -1429,7 +1419,7 @@
                   title={$t("Delete connection")}
                   onclick={deleteConnection}
                 >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/></svg>
+                  <Icon name="trash" />
                 </button>
               </div>
             </div>
@@ -1449,9 +1439,9 @@
                   onclick={() => (showApiKey = !showApiKey)}
                 >
                   {#if showApiKey}
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                    <Icon name="eye" />
                   {:else}
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18"/><path d="M6.7 6.7C4.3 8.2 2 12 2 12s3.5 6 10 6c1.9 0 3.6-.5 5-1.3"/><path d="M10.7 6.1c.4-.1.8-.1 1.3-.1 6.5 0 10 6 10 6a18 18 0 0 1-2.1 2.8"/><path d="M14.1 14.1a3 3 0 0 1-4.2-4.2"/></svg>
+                    <Icon name="eye-off" />
                   {/if}
                 </button>
               </div>
@@ -1485,7 +1475,7 @@
                   title={$t("Refresh model list")}
                   onclick={refreshModels}
                 >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-4"/><path d="M4 4v6h6"/><path d="M4 13a8 8 0 0 0 14.9 4"/><path d="M20 20v-6h-6"/></svg>
+                  <Icon name="refresh" />
                 </button>
               </div>
               {#if modelsError}
@@ -1547,7 +1537,7 @@
                 <label for="fields-script">{$t("Fields")}</label>
                 <span class="info">
                   <button type="button" aria-label={$t("Fields script types")}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/></svg>
+                    <Icon name="info" />
                   </button>
                   <pre class="info-tip" role="tooltip">{fieldsScriptHelp($t)}</pre>
                 </span>
@@ -1569,7 +1559,7 @@
                 <label for="config-script">{$t("Config")}</label>
                 <span class="info">
                   <button type="button" aria-label={$t("Config script types")}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/></svg>
+                    <Icon name="info" />
                   </button>
                   <pre class="info-tip" role="tooltip">{configScriptHelp($t)}</pre>
                 </span>
@@ -1613,7 +1603,7 @@
                   title={$t("New profile")}
                   onclick={addProfile}
                 >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                  <Icon name="plus" />
                 </button>
                 <button
                   class="profile-action"
@@ -1623,7 +1613,7 @@
                   title={$t("Delete profile")}
                   onclick={deleteProfile}
                 >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/></svg>
+                  <Icon name="trash" />
                 </button>
               </div>
             </div>
@@ -1662,7 +1652,7 @@
                     title={$t("Remove icon")}
                     onclick={() => { profileIcon = ''; saveSettings() }}
                   >
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    <Icon name="close" />
                   </button>
                 {/if}
               </div>
@@ -1712,7 +1702,7 @@
                       }
                     }}
                   >
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    <Icon name="close" />
                   </button>
                 {/if}
               </div>
