@@ -121,6 +121,7 @@
   let dragging = false
   let messages: Message[] = []
   let loading = false
+  let streamingReasoningOpen = true
   let error = ''
   let copiedMessage: number | null = null
   let editingMessage: number | null = null
@@ -628,6 +629,10 @@
     return parts.join(' · ')
   }
 
+  function syncStreamingReasoningOpen(index: number, details: HTMLDetailsElement) {
+    if (loading && index === messages.length - 1) streamingReasoningOpen = details.open
+  }
+
   function requestReady() {
     const live = evaluated.effective
     if (evaluated.configError) {
@@ -673,6 +678,7 @@
   async function requestResponse(nextMessages: Message[]) {
     error = ''
     copiedMessage = null
+    streamingReasoningOpen = true
     const version = ++requestVersion
     controller = new AbortController()
     const signal = controller.signal
@@ -1116,7 +1122,11 @@
                 {:else}
                   <div class="message-content">
                     {#if message.reasoning}
-                      <details class="reasoning" open={loading && message === messages[messages.length - 1]}>
+                      <details
+                        class="reasoning"
+                        open={loading && index === messages.length - 1 && streamingReasoningOpen}
+                        ontoggle={(event) => syncStreamingReasoningOpen(index, event.currentTarget)}
+                      >
                         <summary>
                           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>Reasoning
                         </summary>
