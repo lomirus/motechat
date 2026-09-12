@@ -176,8 +176,8 @@ function connectionView(connection: Connection) {
   }
 }
 
-const scriptParamsHelp = `Function body: (connection, selected) => { ... }
-Return a value. Do not wrap in function() or write to the form.
+const scriptParamsHelp = (translate: (text: string) => string) => `${translate('Function body:')} (connection, selected) => { ... }
+${translate('Return a value. Do not wrap in function() or write to the form.')}
 
 connection: {
   id: string
@@ -195,20 +195,20 @@ connection: {
 }
 
 selected: {
-  [fieldId: string]: string  // chosen option id
+  [fieldId: string]: string  // ${translate('chosen option id')}
 }`
 
-export const fieldsScriptHelp = `${scriptParamsHelp}
+export const fieldsScriptHelp = (translate: (text: string) => string) => `${scriptParamsHelp(translate)}
 
-returns: {
+${translate('returns:')} {
   id: string
   name: string
   options: { id: string, label: string }[]
 }[]`
 
-export const configScriptHelp = `${scriptParamsHelp}
+export const configScriptHelp = (translate: (text: string) => string) => `${scriptParamsHelp(translate)}
 
-returns: Partial<connection>`
+${translate('returns:')} Partial<connection>`
 
 function toOption(value: unknown): ConnectionOption | undefined {
   if (typeof value === 'string' && value) return { id: value, label: value }

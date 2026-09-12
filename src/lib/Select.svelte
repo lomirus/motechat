@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from './i18n'
+
   type Option = string | readonly [string, string] | readonly [string, string, string]
 
   let {
@@ -9,6 +11,7 @@
     editable = false,
     listLabel,
     listName,
+    optionLanguages = false,
     onchange,
   }: {
     id: string
@@ -18,6 +21,7 @@
     editable?: boolean
     listLabel: string
     listName: string
+    optionLanguages?: boolean
     onchange?: (value: string) => void
   } = $props()
 
@@ -101,7 +105,7 @@
     class="model-select-toggle"
     type="button"
     disabled={!options.length}
-    aria-label={open ? `Hide ${listName}` : `Show ${listName}`}
+    aria-label={$t(open ? 'Hide {name}' : 'Show {name}', { name: listName })}
     aria-expanded={open}
     aria-controls="{id}-options"
     onclick={() => (open = !open)}
@@ -126,6 +130,7 @@
           type="button"
           role="option"
           aria-selected={optionValue === value}
+          lang={optionLanguages ? optionValue : undefined}
           onclick={() => choose(optionValue)}
         >{#if faces}{@render face(optionIcon)}{/if}{optionLabel}</button>
       {/each}

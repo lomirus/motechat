@@ -13,6 +13,7 @@ A local-first AI chat client for the OpenAI Responses API and compatible endpoin
 - Image attachments
 - Per-connection model fields and request configuration
 - Light, dark, and system themes
+- Interface languages: English, 简体中文, 繁體中文, Español, Italiano, Português, Français, Deutsch, 日本語, 한국어
 
 ## Run locally
 

@@ -3,6 +3,7 @@
   import { loadChats, saveChat, removeChats, loadBackground, saveBackground, removeBackgrounds, type Chat, type Message } from './lib/chats'
   import Code from './lib/Code.svelte'
   import Select from './lib/Select.svelte'
+  import { language, languages, parseLanguage, t, type Translator } from './lib/i18n'
   import { configScriptHelp, createConnection, duplicateConnection, evaluateConnection, fieldsScriptHelp, parseConnections, type Connection } from './lib/connections'
   import { createProfile, parseProfiles, type Profile } from './lib/profiles'
   import {
@@ -64,6 +65,7 @@
   $: if (ready) persistChat(messages, prompt, pendingImages, tokenUsage, chatUsage, pendingUsage)
   let page: 'chat' | 'settings' = 'chat'
   let theme: Theme = 'system'
+  $: document.documentElement.lang = $language
   let connections: Connection[] = parseConnections({}).connections
   let activeConnectionId = connections[0].id
   let connectionName = connections[0].name
@@ -143,6 +145,7 @@
     try {
       const stored = parseJson(localStorage.getItem(storageKey) || '{}')
       if (isRecord(stored)) {
+        language.set(parseLanguage(stored.language))
         sidebarVisible = stored.sidebarVisible !== false
         activeChatId = typeof stored.activeChatId === 'string' ? stored.activeChatId : ''
         theme = stored.theme === 'light' || stored.theme === 'dark' ? stored.theme : 'system'
@@ -201,8 +204,9 @@
     return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
   }
 
-  function priceUnit() {
-    return currency === 'USD' ? '$ / 1M tokens' : '¥ / 1M tokens'
+  function chooseLanguage(value: string) {
+    language.set(parseLanguage(value))
+    saveSettings()
   }
 
   function applyTheme(value: Theme) {
@@ -293,7 +297,7 @@
   }
 
   function deleteConnection() {
-    if (connections.length < 2 || !confirm(`Delete connection "${connectionName}"?`)) return
+    if (connections.length < 2 || !confirm($t('Delete connection "{name}"?', { name: connectionName }))) return
     const deletedId = activeConnectionId
     connections = connections.filter((connection) => connection.id !== deletedId)
     loadActiveConnection()
@@ -375,7 +379,7 @@
   }
 
   async function deleteProfile() {
-    if (profiles.length < 2 || !confirm(`Delete profile "${profileName}" and all its conversations?`)) return
+    if (profiles.length < 2 || !confirm($t('Delete profile "{name}" and all its conversations?', { name: profileName }))) return
     stopResponse()
     const deletedId = activeProfileId
     try {
@@ -398,6 +402,7 @@
     try {
       localStorage.setItem(storageKey, JSON.stringify({
       theme,
+      language: $language,
       connections,
       activeConnectionId,
       profiles,
@@ -509,7 +514,7 @@
       let next = [...(into === 'edit' ? editImages : pendingImages)]
       for (const file of files) {
         if (next.length >= maxPendingImages) {
-          error = `You can attach up to ${maxPendingImages} images.`
+          error = $t('You can attach up to {count} images.', { count: maxPendingImages })
           break
         }
         next = [...next, await readImage(file)]
@@ -620,11 +625,11 @@
     }
   }
 
-  function messageTiming({ tokensPerSecond, timeToFirstToken }: Message) {
+  function messageTiming({ tokensPerSecond, timeToFirstToken }: Message, translate: Translator) {
     const parts = []
-    if (tokensPerSecond) parts.push(`${tokensPerSecond.toFixed(1)} tokens/s`)
+    if (tokensPerSecond) parts.push(translate('{count} tokens/s', { count: tokensPerSecond.toFixed(1) }))
     if (timeToFirstToken != null) {
-      parts.push(`${timeToFirstToken >= 1000 ? `${(timeToFirstToken / 1000).toFixed(1)}s` : `${Math.round(timeToFirstToken)}ms`} to first token`)
+      parts.push(translate('{time} to first token', { time: timeToFirstToken >= 1000 ? `${(timeToFirstToken / 1000).toFixed(1)}s` : `${Math.round(timeToFirstToken)}ms` }))
     }
     return parts.join(' · ')
   }
@@ -661,7 +666,7 @@
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       })
       const data = await readResponseJson(response).catch((): unknown => undefined)
-      if (!response.ok) throw new Error(responseErrorMessage(data) || `Request failed (${response.status}).`)
+      if (!response.ok) throw new Error(responseErrorMessage(data) || $t('Request failed ({status}).', { status: response.status }))
       if (activeConnectionId !== requestedId) return
       availableModels = extractModelIds(data)
       if (!availableModels.length) throw new Error('The service returned no models.')
@@ -710,7 +715,7 @@
       if (version !== requestVersion) return
       if (!response.ok) {
         const data = await readResponseJson(response).catch((): unknown => undefined)
-        throw new Error(responseErrorMessage(data) || `Request failed (${response.status}).`)
+        throw new Error(responseErrorMessage(data) || $t('Request failed ({status}).', { status: response.status }))
       }
 
       if (response.body && response.headers.get('content-type')?.includes('text/event-stream')) {
@@ -926,6 +931,11 @@
     navigate(`/chat/${chat.id}`)
   }
 
+  function chatTitle(chat: Chat, translate: Translator) {
+    const first = chat.messages.find((message) => message.role === 'user')
+    return first?.content.trim() ? chat.title : translate(first ? 'Image conversation' : 'New chat')
+  }
+
   function isEmptyChat(chat: Chat) {
     return !chat.messages.length && !chat.prompt.trim() && !chat.pendingImages.length
   }
@@ -933,7 +943,7 @@
   async function deleteChat(chat: Chat) {
     const empty = isEmptyChat(chat)
     if (empty && chats.filter((item) => item.profileId === chat.profileId).length < 2) return
-    if (!empty && !confirm(`Delete conversation "${chat.title}"? This cannot be undone.`)) return
+    if (!empty && !confirm($t('Delete conversation "{name}"? This cannot be undone.', { name: chatTitle(chat, $t) }))) return
     if (chat.id === activeChatId) stopResponse()
     try {
       await removeChats([chat.id])
@@ -958,8 +968,8 @@
 </script>
 
 <svelte:head>
-  <title>MoteChat — AI assistant</title>
-  <meta name="description" content="A focused, private AI conversation interface." />
+  <title>{$t("MoteChat — AI assistant")}</title>
+  <meta name="description" content={$t("A focused, private AI conversation interface.")} />
 </svelte:head>
 
 {#snippet profileFace(src: string)}
@@ -979,25 +989,25 @@
         <img src={profileBackground} alt="" />
       </div>
     {/if}
-    <aside class="chat-sidebar" id="chat-sidebar" aria-label="Conversations" aria-hidden={!sidebarVisible} inert={!sidebarVisible}>
-      <label class="sidebar-label" for="sidebar-profile">Profile</label>
-      <Select id="sidebar-profile" value={activeProfileId} options={profiles.map((profile): [string, string, string] => [profile.id, profile.name, profile.icon])} listLabel="Profiles" listName="profile groups" onchange={switchProfile} />
-      <nav class="chat-list" aria-label={`${profileName} conversations`}>
+    <aside class="chat-sidebar" id="chat-sidebar" aria-label={$t("Conversations")} aria-hidden={!sidebarVisible} inert={!sidebarVisible}>
+      <label class="sidebar-label" for="sidebar-profile">{$t("Profile")}</label>
+      <Select id="sidebar-profile" value={activeProfileId} options={profiles.map((profile): [string, string, string] => [profile.id, profile.name, profile.icon])} listLabel={$t("Profiles")} listName={$t("Profiles")} onchange={switchProfile} />
+      <nav class="chat-list" aria-label={$t("{name} conversations", { name: profileName })}>
         {#each visibleChats as chat (chat.id)}
           <div class="chat-list-item" class:active={page === 'chat' && activeChatId === chat.id}>
-            <a href={`#/chat/${chat.id}`} aria-current={page === 'chat' && activeChatId === chat.id ? 'page' : undefined} title={chat.title}>{chat.title}</a>
-            <button class="icon-button" type="button" disabled={visibleChats.length < 2 && isEmptyChat(chat)} aria-label={`Delete conversation ${chat.title}`} title="Delete conversation" onclick={() => deleteChat(chat)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg></button>
+            <a href={`#/chat/${chat.id}`} aria-current={page === 'chat' && activeChatId === chat.id ? 'page' : undefined} title={chatTitle(chat, $t)}>{chatTitle(chat, $t)}</a>
+            <button class="icon-button" type="button" disabled={visibleChats.length < 2 && isEmptyChat(chat)} aria-label={$t("Delete conversation {name}", { name: chatTitle(chat, $t) })} title={$t("Delete conversation")} onclick={() => deleteChat(chat)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg></button>
           </div>
         {:else}
-          <p class="sidebar-empty">No conversations yet.</p>
+          <p class="sidebar-empty">{$t("No conversations yet.")}</p>
         {/each}
       </nav>
     </aside>
-  {#if storageError}<div class="storage-error" role="alert">{storageError}</div>{/if}
+  {#if storageError}<div class="storage-error" role="alert">{$t(storageError)}</div>{/if}
   <header class="topbar">
     <div class="top-actions">
-      <button class="icon-button" type="button" aria-label={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'} aria-expanded={sidebarVisible} aria-controls="chat-sidebar" title={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'} onclick={toggleSidebar}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
-    <button class="brand" type="button" aria-label="MoteChat — Back to chat" onclick={() => navigate(`/chat/${activeChatId}`)}>
+      <button class="icon-button" type="button" aria-label={sidebarVisible ? $t("Hide sidebar") : $t("Show sidebar")} aria-expanded={sidebarVisible} aria-controls="chat-sidebar" title={sidebarVisible ? $t("Hide sidebar") : $t("Show sidebar")} onclick={toggleSidebar}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+    <button class="brand" type="button" aria-label={$t("MoteChat — Back to chat")} onclick={() => navigate(`/chat/${activeChatId}`)}>
       <img class="brand-mark" src={`${import.meta.env.BASE_URL}logo.svg`} alt="" width="28" height="28" />
       <span>MoteChat</span>
     </button>
@@ -1005,14 +1015,14 @@
     </div>
     <div class="top-actions">
       {#if page === 'chat'}
-        <button class="icon-button" type="button" aria-label="New chat" title="New chat" onclick={newChat}>
+        <button class="icon-button" type="button" aria-label={$t("New chat")} title={$t("New chat")} onclick={newChat}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
         </button>
-        <button class="icon-button" type="button" aria-label="Open Settings" title="Settings" onclick={() => navigate('/settings')}>
+        <button class="icon-button" type="button" aria-label={$t("Open Settings")} title={$t("Settings")} onclick={() => navigate('/settings')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
         </button>
       {:else}
-        <button class="icon-button" type="button" aria-label="Back to chat" title="Back to chat" onclick={() => navigate(`/chat/${activeChatId}`)}>
+        <button class="icon-button" type="button" aria-label={$t("Back to chat")} title={$t("Back to chat")} onclick={() => navigate(`/chat/${activeChatId}`)}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
         </button>
       {/if}
@@ -1022,7 +1032,7 @@
   {#if page === 'chat'}
     <main class="chat" class:has-messages={messages.length > 0} class:has-attachments={pendingImages.length > 0}>
       {#if messages.length === 0}
-        <section class="welcome" aria-label="Profile">
+        <section class="welcome" aria-label={$t("Profile")}>
           <div
             class="welcome-profile"
             onfocusout={(event) => {
@@ -1032,7 +1042,7 @@
             <button
               type="button"
               disabled={profiles.length < 2}
-              aria-label="Profile: {profileName}"
+              aria-label={$t("Profile: {name}", { name: profileName })}
               aria-haspopup="listbox"
               aria-expanded={profileMenuOpen}
               aria-controls="welcome-profile-options"
@@ -1050,7 +1060,7 @@
                 class="welcome-profile-list"
                 role="listbox"
                 tabindex="-1"
-                aria-label="Profiles"
+                aria-label={$t("Profiles")}
                 onkeydown={(event) => {
                   if (event.key === 'Escape') profileMenuOpen = false
                 }}
@@ -1087,8 +1097,8 @@
                     <div class="composer-attachments">
                       {#each editImages as src, imageIndex}
                         <div class="composer-attachment">
-                          <img src={src} alt="Attachment" />
-                          <button type="button" aria-label="Remove image" onclick={() => removeImage(imageIndex, 'edit')}>
+                          <img src={src} alt={$t("Attachment")} />
+                          <button type="button" aria-label={$t("Remove image")} onclick={() => removeImage(imageIndex, 'edit')}>
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
                           </button>
                         </div>
@@ -1099,7 +1109,7 @@
                     class="message-editor"
                     bind:this={editTextarea}
                     bind:value={editPrompt}
-                    aria-label="Edit message"
+                    aria-label={$t("Edit message")}
                     rows="1"
                     oninput={(event) => resizeTextarea(event.currentTarget)}
                     onkeydown={(event) => handleKeydown(event, () => saveEdit(index))}
@@ -1110,14 +1120,14 @@
                       class="edit-attach"
                       type="button"
                       disabled={loading || attaching || editImages.length >= maxPendingImages}
-                      aria-label="Add image"
-                      title="Add image"
+                      aria-label={$t("Add image")}
+                      title={$t("Add image")}
                       onclick={() => pickImages('edit')}
                     >
                       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
                     </button>
-                    <button type="button" onclick={cancelEdit}>Cancel</button>
-                    <button class="save-edit" type="button" disabled={(!editPrompt.trim() && !editImages.length) || loading || attaching} onclick={() => saveEdit(index)}>Save & submit</button>
+                    <button type="button" onclick={cancelEdit}>{$t("Cancel")}</button>
+                    <button class="save-edit" type="button" disabled={(!editPrompt.trim() && !editImages.length) || loading || attaching} onclick={() => saveEdit(index)}>{$t("Save & submit")}</button>
                   </div>
                 {:else}
                   <div class="message-content">
@@ -1128,7 +1138,7 @@
                         ontoggle={(event) => syncStreamingReasoningOpen(index, event.currentTarget)}
                       >
                         <summary>
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>Reasoning
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>{$t("Reasoning")}
                         </summary>
                         <div>{message.reasoning}</div>
                       </details>
@@ -1136,7 +1146,7 @@
                     {#if message.images?.length}
                       <div class="message-images">
                         {#each message.images as src}
-                          <img src={src} alt="Attachment" />
+                          <img src={src} alt={$t("Attachment")} />
                         {/each}
                       </div>
                     {/if}
@@ -1144,7 +1154,7 @@
                   </div>
                   <div class="message-meta">
                     {#if message.role === 'assistant'}
-                      {@const timing = messageTiming(message)}
+                      {@const timing = messageTiming(message, $t)}
                       {#if timing}
                         <p class="message-speed">{timing}</p>
                       {/if}
@@ -1152,17 +1162,17 @@
                     <div class="message-actions">
                       <button type="button" onclick={() => copyMessage(message.content, index)}>
                         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg>
-                        {copiedMessage === index ? 'Copied' : 'Copy'}
+                        {copiedMessage === index ? $t("Copied") : $t("Copy")}
                       </button>
                       {#if message.role === 'assistant'}
                         <button type="button" disabled={loading || editingMessage !== null} onclick={() => regenerateMessage(index)}>
                           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
-                          Regenerate
+                          {$t("Regenerate")}
                         </button>
                       {:else}
                         <button type="button" disabled={loading || editingMessage !== null} onclick={() => editMessage(index)}>
                           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
-                          Edit
+                          {$t("Edit")}
                         </button>
                       {/if}
                     </div>
@@ -1174,7 +1184,7 @@
           {#if loading && messages[messages.length - 1]?.role !== 'assistant'}
             <article class="assistant">
               {@render profileAvatar()}
-              <div class="typing" aria-label="AI is responding"><i></i><i></i><i></i></div>
+              <div class="typing" aria-label={$t("AI is responding")}><i></i><i></i><i></i></div>
             </article>
           {/if}
           <div bind:this={messageEnd}></div>
@@ -1207,22 +1217,22 @@
           <div class="composer-attachments">
             {#each pendingImages as src, index}
               <div class="composer-attachment">
-                <img src={src} alt="Attachment" />
-                <button type="button" aria-label="Remove image" onclick={() => removeImage(index)}>
+                <img src={src} alt={$t("Attachment")} />
+                <button type="button" aria-label={$t("Remove image")} onclick={() => removeImage(index)}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
               </div>
             {/each}
           </div>
         {/if}
-        <textarea bind:this={textarea} bind:value={prompt} rows="1" aria-label="Message" placeholder="Message MoteChat" oninput={(event) => resizeTextarea(event.currentTarget)} onkeydown={handleKeydown} onpaste={handlePaste}></textarea>
+        <textarea bind:this={textarea} bind:value={prompt} rows="1" aria-label={$t("Message")} placeholder={$t("Message MoteChat")} oninput={(event) => resizeTextarea(event.currentTarget)} onkeydown={handleKeydown} onpaste={handlePaste}></textarea>
         <div class="composer-footer">
           <button
             class="attach-button"
             type="button"
             disabled={loading || attaching || pendingImages.length >= maxPendingImages}
-            aria-label="Add image"
-            title="Add image"
+            aria-label={$t("Add image")}
+            title={$t("Add image")}
             onclick={() => pickImages('pending')}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
@@ -1233,9 +1243,9 @@
               <Select
                 id="switch-{field.id}"
                 value={evaluated.selected[field.id]}
-                options={field.options.map((option): [string, string] => [option.id, option.label || 'Untitled'])}
-                listLabel={field.name || 'Options'}
-                listName="{field.name || 'option'} list"
+                options={field.options.map((option): [string, string] => [option.id, option.label || $t("Untitled")])}
+                listLabel={field.name || $t("Options")}
+                listName={field.name || $t("Options")}
                 onchange={(optionId) => chooseOption(field.id, optionId)}
               />
             </div>
@@ -1248,11 +1258,11 @@
                 class:warn={meter.ratio >= 0.8}
                 class:alert={meter.ratio >= 0.95}
                 role="meter"
-                aria-label="Context used"
+                aria-label={$t("Context used")}
                 aria-valuemin={0}
                 aria-valuemax={meter.limit || undefined}
                 aria-valuenow={meter.used}
-                aria-valuetext={meter.limit ? `${meter.percent}%` : 'Unlimited'}
+                aria-valuetext={meter.limit ? `${meter.percent}%` : $t("Unlimited")}
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <circle class="track" cx="12" cy="12" r="9"></circle>
@@ -1269,10 +1279,10 @@
                 </svg>
                 <span class="context-meter-tip">
                   <span class="context-meter-head">
-                    <strong>{meter.limit ? `${meter.percent}%` : 'Unlimited'}</strong>
+                    <strong>{meter.limit ? `${meter.percent}%` : $t("Unlimited")}</strong>
                     <span>{meter.limit
-                      ? `${meter.used.toLocaleString()} / ${meter.limit.toLocaleString()}`
-                      : `${meter.used.toLocaleString()} tokens`}</span>
+                      ? `${meter.used.toLocaleString($language)} / ${meter.limit.toLocaleString($language)}`
+                      : $t("{count} tokens", { count: meter.used.toLocaleString($language) })}</span>
                   </span>
                   <span class="context-meter-bar" style="--fill: {meter.barFill}%">
                     <span class="context-meter-fill">
@@ -1287,79 +1297,96 @@
                     {#each meter.parts as part}
                       <span>
                         <i class={part.key}></i>
-                        {usageLabels[part.key]}
-                        <b>{part.tokens.toLocaleString()}</b>
+                        {$t(usageLabels[part.key])}
+                        <b>{part.tokens.toLocaleString($language)}</b>
                       </span>
                     {/each}
                   </span>
                   <span class="context-meter-cost">
-                    <span>Cost<b>{formatMoney(meter.cost, evaluated.effective.currency)}</b></span>
-                    <span>Total<b>{formatMoney(meter.total, evaluated.effective.currency)}</b></span>
+                    <span>{$t("Cost")}<b>{formatMoney(meter.cost, evaluated.effective.currency)}</b></span>
+                    <span>{$t("Total")}<b>{formatMoney(meter.total, evaluated.effective.currency)}</b></span>
                   </span>
                 </span>
               </span>
             {/if}
-            <button class="send-button" type="submit" disabled={(!prompt.trim() && !pendingImages.length) || loading || attaching} aria-label="Send message">
+            <button class="send-button" type="submit" disabled={(!prompt.trim() && !pendingImages.length) || loading || attaching} aria-label={$t("Send message")}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19V5"/><path d="m6 11 6-6 6 6"/></svg>
             </button>
           </div>
         </div>
       </form>
       {#if error || evaluated.fieldsError || evaluated.configError}
-        <p class="composer-error" role="alert">{error || evaluated.fieldsError || evaluated.configError} {#if evaluated.fieldsError || evaluated.configError || !evaluated.effective.apiKey.trim() || !evaluated.effective.baseUrl.trim()}<button type="button" onclick={() => navigate('/settings')}>Open Settings</button>{/if}</p>
+        <p class="composer-error" role="alert">{$t(error || evaluated.fieldsError || evaluated.configError)} {#if evaluated.fieldsError || evaluated.configError || !evaluated.effective.apiKey.trim() || !evaluated.effective.baseUrl.trim()}<button type="button" onclick={() => navigate('/settings')}>{$t("Open Settings")}</button>{/if}</p>
       {/if}
     </div>
   {:else}
     <main class="settings">
       <div class="settings-heading">
-        <h1>Settings</h1>
-        <p>Changes save automatically.</p>
+        <h1>{$t("Settings")}</h1>
+        <p>{$t("Changes save automatically.")}</p>
       </div>
 
       <form class="settings-form" oninput={saveSettings}>
+        <section class="settings-card" aria-labelledby="language-title">
+          <div class="setting-copy">
+            <h2 id="language-title"><label for="language-input">{$t('Language')}</label></h2>
+            <p>{$t('Choose the interface language.')}</p>
+          </div>
+          <div class="fields">
+            <Select
+              id="language-input"
+              value={$language}
+              options={languages}
+              listLabel={$t('Language')}
+              listName={$t('Language')}
+              optionLanguages
+              onchange={chooseLanguage}
+            />
+          </div>
+        </section>
         <section class="settings-card" aria-labelledby="appearance-title">
           <div class="setting-copy">
-            <h2 id="appearance-title">Appearance</h2>
-            <p>Choose how MoteChat looks on this device.</p>
+            <h2 id="appearance-title">{$t("Appearance")}</h2>
+            <p>{$t("Choose how MoteChat looks on this device.")}</p>
           </div>
-          <div class="theme-picker" aria-label="Theme">
+          <div class="theme-picker" aria-label={$t("Theme")}>
             <button class:active={theme === 'system'} type="button" onclick={() => chooseTheme('system')}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-              System
+              {$t("System")}
             </button>
             <button class:active={theme === 'light'} type="button" onclick={() => chooseTheme('light')}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-              Light
+              {$t("Light")}
             </button>
             <button class:active={theme === 'dark'} type="button" onclick={() => chooseTheme('dark')}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 15.3A9 9 0 0 1 8.7 3.2 9 9 0 1 0 20.8 15.3Z"/></svg>
-              Dark
+              {$t("Dark")}
             </button>
           </div>
         </section>
 
         <section class="settings-card connection" aria-labelledby="connection-title">
           <div class="setting-copy">
-            <h2 id="connection-title">API connection</h2>
-            <p>Create and switch connections. Credentials stay in your browser and are sent only to your Base URL.</p>
+            <h2 id="connection-title">{$t("API connection")}</h2>
+            <p>{$t("Create and switch connections. Credentials stay in your browser and are sent only to your Base URL.")}</p>
           </div>
           <div class="fields">
             <div class="model-field">
-              <label for="connection-input"><span>Current connection</span></label>
+              <label for="connection-input"><span>{$t("Current connection")}</span></label>
               <div class="model-input-row">
                 <Select
                   id="connection-input"
                   value={activeConnectionId}
                   options={connections.map((connection): [string, string] => [connection.id, connection.name])}
-                  listLabel="Connections"
-                  listName="connection list"
+                  listLabel={$t("Connections")}
+                  listName={$t("Connections")}
                   onchange={switchConnection}
                 />
                 <button
                   class="profile-action"
                   type="button"
-                  aria-label="New connection"
-                  title="New connection"
+                  aria-label={$t("New connection")}
+                  title={$t("New connection")}
                   onclick={addConnection}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -1367,8 +1394,8 @@
                 <button
                   class="profile-action"
                   type="button"
-                  aria-label="Duplicate connection"
-                  title="Duplicate connection"
+                  aria-label={$t("Duplicate connection")}
+                  title={$t("Duplicate connection")}
                   onclick={copyConnection}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10v10H9z"/><path d="M5 15V5h10"/></svg>
@@ -1377,8 +1404,8 @@
                   class="profile-action"
                   type="button"
                   disabled={connections.length < 2}
-                  aria-label="Delete connection"
-                  title="Delete connection"
+                  aria-label={$t("Delete connection")}
+                  title={$t("Delete connection")}
                   onclick={deleteConnection}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/></svg>
@@ -1386,18 +1413,18 @@
               </div>
             </div>
             <label>
-              <span>Name</span>
-              <input bind:value={connectionName} placeholder="Connection name" />
+              <span>{$t("Name")}</span>
+              <input bind:value={connectionName} placeholder={$t("Connection name")} />
             </label>
             <div class="field">
-              <label for="api-key"><span>API Key</span></label>
+              <label for="api-key"><span>{$t("API Key")}</span></label>
               <div class="input-with-action">
                 <input id="api-key" type={showApiKey ? 'text' : 'password'} bind:value={apiKey} placeholder="sk-••••••••••••••••" autocomplete="off" />
                 <button
                   type="button"
-                  aria-label={showApiKey ? 'Hide API Key' : 'Show API Key'}
+                  aria-label={showApiKey ? $t("Hide API Key") : $t("Show API Key")}
                   aria-pressed={showApiKey}
-                  title={showApiKey ? 'Hide API Key' : 'Show API Key'}
+                  title={showApiKey ? $t("Hide API Key") : $t("Show API Key")}
                   onclick={() => (showApiKey = !showApiKey)}
                 >
                   {#if showApiKey}
@@ -1407,24 +1434,24 @@
                   {/if}
                 </button>
               </div>
-              <small>Stored locally on this device.</small>
+              <small>{$t("Stored locally on this device.")}</small>
             </div>
             <label>
-              <span>Base URL</span>
+              <span>{$t("Base URL")}</span>
               <input type="url" bind:value={baseUrl} placeholder="https://api.openai.com/v1" spellcheck="false" />
-              <small>Requests are sent to <code>/responses</code>.</small>
+              <small>{$t("Requests are sent to {endpoint}.", { endpoint: "/responses" })}</small>
             </label>
             <div class="model-field">
-              <label for="model-input"><span>Model</span></label>
+              <label for="model-input"><span>{$t("Model")}</span></label>
               <div class="model-input-row">
                 <Select
                   id="model-input"
                   bind:value={model}
                   editable
-                  placeholder="Model ID"
+                  placeholder={$t("Model ID")}
                   options={availableModels}
-                  listLabel="Available models"
-                  listName="model list"
+                  listLabel={$t("Available models")}
+                  listName={$t("Available models")}
                   onchange={saveSettings}
                 />
                 <button
@@ -1432,76 +1459,76 @@
                   class:loading={modelsLoading}
                   type="button"
                   disabled={!apiKey.trim() || !baseUrl.trim() || modelsLoading}
-                  aria-label={modelsLoading ? 'Refreshing model list' : 'Refresh model list'}
+                  aria-label={modelsLoading ? $t("Refreshing model list") : $t("Refresh model list")}
                   aria-busy={modelsLoading}
-                  title="Refresh model list"
+                  title={$t("Refresh model list")}
                   onclick={refreshModels}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-4"/><path d="M4 4v6h6"/><path d="M4 13a8 8 0 0 0 14.9 4"/><path d="M20 20v-6h-6"/></svg>
                 </button>
               </div>
               {#if modelsError}
-                <small class="field-error" role="alert">{modelsError}</small>
+                <small class="field-error" role="alert">{$t(modelsError)}</small>
               {:else if availableModels.length}
-                <small>{availableModels.length} models available. Choose one or enter a model ID.</small>
+                <small>{$t("Models available: {count}. Choose one or enter a model ID.", { count: availableModels.length.toLocaleString($language) })}</small>
               {:else}
-                <small>Enter a model ID, or refresh the list after adding an API Key and Base URL.</small>
+                <small>{$t("Enter a model ID, or refresh the list after adding an API Key and Base URL.")}</small>
               {/if}
             </div>
             <div class="model-field">
-              <label for="effort-input"><span>Thinking intensity</span></label>
+              <label for="effort-input"><span>{$t("Thinking intensity")}</span></label>
               <Select
                 id="effort-input"
                 bind:value={reasoningEffort}
-                options={reasoningEffortOptions}
-                listLabel="Thinking intensity"
-                listName="thinking intensity list"
+                options={reasoningEffortOptions.map(([value, label]): [string, string] => [value, $t(label)])}
+                listLabel={$t("Thinking intensity")}
+                listName={$t("Thinking intensity")}
                 onchange={saveSettings}
               />
-              <small>Sent as <code>reasoning.effort</code>. Supported values vary by model.</small>
+              <small>{$t("Sent as {parameter}. Supported values vary by model.", { parameter: "reasoning.effort" })}</small>
             </div>
             <label>
-              <span>Context length</span>
-              <input id="context-length" type="number" min="1" step="1" bind:value={contextLength} placeholder="Unlimited" />
-              <small>Model context window in tokens. Leave empty for unlimited context.</small>
+              <span>{$t("Context length")}</span>
+              <input id="context-length" type="number" min="1" step="1" bind:value={contextLength} placeholder={$t("Unlimited")} />
+              <small>{$t("Model context window in tokens. Leave empty for unlimited context.")}</small>
             </label>
             <div class="model-field">
-              <span class="field-label" id="currency-label">Currency</span>
+              <span class="field-label" id="currency-label">{$t("Currency")}</span>
               <div class="theme-picker pair" data-currency={currency} role="group" aria-labelledby="currency-label">
                 <button class:active={currency === 'CNY'} type="button" onclick={() => chooseCurrency('CNY')}>CNY ¥</button>
                 <button class:active={currency === 'USD'} type="button" onclick={() => chooseCurrency('USD')}>USD $</button>
               </div>
-              <small>Used for model prices and the chat cost estimate.</small>
+              <small>{$t("Used for model prices and the chat cost estimate.")}</small>
             </div>
             <label>
-              <span>Cache hit input</span>
+              <span>{$t("Cache hit input")}</span>
               <div class="input-with-action suffix">
                 <input id="cache-hit-price" type="number" min="0" step="any" bind:value={cacheHitPrice} placeholder="0" />
-                <span class="field-suffix">{priceUnit()}</span>
+                <span class="field-suffix">{$t("{symbol} / 1M tokens", { symbol: currency === "USD" ? "$" : "¥" })}</span>
               </div>
             </label>
             <label>
-              <span>Cache miss input</span>
+              <span>{$t("Cache miss input")}</span>
               <div class="input-with-action suffix">
                 <input id="cache-miss-price" type="number" min="0" step="any" bind:value={cacheMissPrice} placeholder="0" />
-                <span class="field-suffix">{priceUnit()}</span>
+                <span class="field-suffix">{$t("{symbol} / 1M tokens", { symbol: currency === "USD" ? "$" : "¥" })}</span>
               </div>
             </label>
             <label>
-              <span>Output</span>
+              <span>{$t("Output")}</span>
               <div class="input-with-action suffix">
                 <input id="output-price" type="number" min="0" step="any" bind:value={outputPrice} placeholder="0" />
-                <span class="field-suffix">{priceUnit()}</span>
+                <span class="field-suffix">{$t("{symbol} / 1M tokens", { symbol: currency === "USD" ? "$" : "¥" })}</span>
               </div>
             </label>
             <div class="model-field">
               <span class="field-label">
-                <label for="fields-script">Fields</label>
+                <label for="fields-script">{$t("Fields")}</label>
                 <span class="info">
-                  <button type="button" aria-label="Fields script types">
+                  <button type="button" aria-label={$t("Fields script types")}>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/></svg>
                   </button>
-                  <pre class="info-tip" role="tooltip">{fieldsScriptHelp}</pre>
+                  <pre class="info-tip" role="tooltip">{fieldsScriptHelp($t)}</pre>
                 </span>
               </span>
               <Code
@@ -1511,19 +1538,19 @@
                 placeholder={"return [\n  { id: 'tier', name: 'Tier', options: [\n    { id: 'fast', label: 'Fast' },\n    { id: 'expert', label: 'Expert' },\n  ]},\n]"}
               />
               {#if evaluated.fieldsError}
-                <small class="field-error" role="alert">{evaluated.fieldsError}</small>
+                <small class="field-error" role="alert">{$t(evaluated.fieldsError)}</small>
               {:else}
-                <small>Composer switches. Omit <code>id</code> to use name/label; an option may be a string. Leave empty for none.</small>
+                <small>{$t("Composer switches. Omit id to use name/label; an option may be a string. Leave empty for none.")}</small>
               {/if}
             </div>
             <div class="model-field">
               <span class="field-label">
-                <label for="config-script">Config</label>
+                <label for="config-script">{$t("Config")}</label>
                 <span class="info">
-                  <button type="button" aria-label="Config script types">
+                  <button type="button" aria-label={$t("Config script types")}>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/></svg>
                   </button>
-                  <pre class="info-tip" role="tooltip">{configScriptHelp}</pre>
+                  <pre class="info-tip" role="tooltip">{configScriptHelp($t)}</pre>
                 </span>
               </span>
               <Code
@@ -1533,9 +1560,9 @@
                 placeholder={"return {\n  ...connection,\n  model: selected.tier === 'expert' ? 'gpt-5.6-sol' : 'gpt-5.6-luna',\n}"}
               />
               {#if evaluated.configError}
-                <small class="field-error" role="alert">{evaluated.configError}</small>
+                <small class="field-error" role="alert">{$t(evaluated.configError)}</small>
               {:else}
-                <small>Returned keys overlay the defaults above for requests. Leave empty to use the defaults.</small>
+                <small>{$t("Returned keys overlay the defaults above for requests. Leave empty to use the defaults.")}</small>
               {/if}
             </div>
           </div>
@@ -1543,26 +1570,26 @@
 
         <section class="settings-card" aria-labelledby="profile-title">
           <div class="setting-copy">
-            <h2 id="profile-title">Profile</h2>
-            <p>Create and switch profiles. Each one stores its own icon, background, and instructions.</p>
+            <h2 id="profile-title">{$t("Profile")}</h2>
+            <p>{$t("Create and switch profiles. Each one stores its own icon, background, and instructions.")}</p>
           </div>
           <div class="fields">
             <div class="model-field">
-              <label for="profile-input"><span>Current profile</span></label>
+              <label for="profile-input"><span>{$t("Current profile")}</span></label>
               <div class="model-input-row">
                 <Select
                   id="profile-input"
                   value={activeProfileId}
                   options={profiles.map((profile): [string, string, string] => [profile.id, profile.name, profile.icon])}
-                  listLabel="Profiles"
-                  listName="profile list"
+                  listLabel={$t("Profiles")}
+                  listName={$t("Profiles")}
                   onchange={switchProfile}
                 />
                 <button
                   class="profile-action"
                   type="button"
-                  aria-label="New profile"
-                  title="New profile"
+                  aria-label={$t("New profile")}
+                  title={$t("New profile")}
                   onclick={addProfile}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -1571,8 +1598,8 @@
                   class="profile-action"
                   type="button"
                   disabled={profiles.length < 2}
-                  aria-label="Delete profile"
-                  title="Delete profile"
+                  aria-label={$t("Delete profile")}
+                  title={$t("Delete profile")}
                   onclick={deleteProfile}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/></svg>
@@ -1580,11 +1607,11 @@
               </div>
             </div>
             <label>
-              <span>Name</span>
-              <input bind:value={profileName} placeholder="Profile name" />
+              <span>{$t("Name")}</span>
+              <input bind:value={profileName} placeholder={$t("Profile name")} />
             </label>
             <div class="model-field">
-              <label for="profile-icon-input"><span>Icon</span></label>
+              <label for="profile-icon-input"><span>{$t("Icon")}</span></label>
               <input
                 id="profile-icon-input"
                 bind:this={iconInput}
@@ -1600,8 +1627,8 @@
                 <button
                   class="profile-icon"
                   type="button"
-                  aria-label={profileIcon ? 'Replace profile icon' : 'Upload profile icon'}
-                  title={profileIcon ? 'Replace icon' : 'Upload icon'}
+                  aria-label={profileIcon ? $t("Replace profile icon") : $t("Upload profile icon")}
+                  title={profileIcon ? $t("Replace icon") : $t("Upload icon")}
                   onclick={() => iconInput.click()}
                 >
                   {#if profileIcon}<img src={profileIcon} alt="" />{/if}
@@ -1610,8 +1637,8 @@
                   <button
                     class="profile-icon-clear"
                     type="button"
-                    aria-label="Remove profile icon"
-                    title="Remove icon"
+                    aria-label={$t("Remove profile icon")}
+                    title={$t("Remove icon")}
                     onclick={() => { profileIcon = ''; saveSettings() }}
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -1619,13 +1646,13 @@
                 {/if}
               </div>
               {#if iconError}
-                <small class="field-error" role="alert">{iconError}</small>
+                <small class="field-error" role="alert">{$t(iconError)}</small>
               {:else}
-                <small>Shown next to assistant replies. Optional.</small>
+                <small>{$t("Shown next to assistant replies. Optional.")}</small>
               {/if}
             </div>
             <div class="model-field">
-              <label for="profile-background-input"><span>Background</span></label>
+              <label for="profile-background-input"><span>{$t("Background")}</span></label>
               <input
                 id="profile-background-input"
                 bind:this={backgroundInput}
@@ -1641,8 +1668,8 @@
                 <button
                   class="profile-background"
                   type="button"
-                  aria-label={profileBackground ? 'Replace profile background' : 'Upload profile background'}
-                  title={profileBackground ? 'Replace background' : 'Upload background'}
+                  aria-label={profileBackground ? $t("Replace profile background") : $t("Upload profile background")}
+                  title={profileBackground ? $t("Replace background") : $t("Upload background")}
                   onclick={() => backgroundInput.click()}
                 >
                   {#if profileBackground}<img src={profileBackground} alt="" />{/if}
@@ -1651,8 +1678,8 @@
                   <button
                     class="profile-icon-clear"
                     type="button"
-                    aria-label="Remove profile background"
-                    title="Remove background"
+                    aria-label={$t("Remove profile background")}
+                    title={$t("Remove background")}
                     onclick={async () => {
                       try {
                         await removeBackgrounds([activeProfileId])
@@ -1669,15 +1696,15 @@
                 {/if}
               </div>
               {#if backgroundError}
-                <small class="field-error" role="alert">{backgroundError}</small>
+                <small class="field-error" role="alert">{$t(backgroundError)}</small>
               {:else}
-                <small>Shown behind conversations. Optional.</small>
+                <small>{$t("Shown behind conversations. Optional.")}</small>
               {/if}
             </div>
             <label>
-              <span>Instructions</span>
-              <textarea bind:value={systemPrompt} rows="6" placeholder="You are a helpful assistant."></textarea>
-              <small>Sent as the Responses API <code>instructions</code> parameter.</small>
+              <span>{$t("Instructions")}</span>
+              <textarea bind:value={systemPrompt} rows="6" placeholder={$t("You are a helpful assistant.")}></textarea>
+              <small>{$t("Sent as the Responses API {parameter} parameter.", { parameter: "instructions" })}</small>
             </label>
           </div>
         </section>
@@ -1688,7 +1715,7 @@
 </div>
 
 {:else}
-  <p class="loading-conversations">Loading conversations…</p>
+  <p class="loading-conversations">{$t("Loading conversations…")}</p>
 {/if}
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
