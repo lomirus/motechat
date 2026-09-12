@@ -1,6 +1,16 @@
-import type { TokenUsage } from './responses'
+import type { Currency, TokenUsage } from './responses'
 
-export type Message = { role: 'user' | 'assistant'; content: string; images?: string[]; reasoning?: string; tokensPerSecond?: number; timeToFirstToken?: number }
+export type Message = {
+  role: 'user' | 'assistant'
+  content: string
+  images?: string[]
+  reasoning?: string
+  tokensPerSecond?: number
+  timeToFirstToken?: number
+  elapsedMs?: number
+  usage?: TokenUsage
+  cost?: { amount: number; currency: Currency }
+}
 export type Chat = {
   id: string
   profileId: string

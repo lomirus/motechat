@@ -1,4 +1,10 @@
 {
+  "Token speed": "Token speed",
+  "Time to first token": "Time to first token",
+  "Elapsed time": "Elapsed time",
+  "Input tokens": "Input tokens",
+  "Output tokens": "Output tokens",
+  "Estimated cost": "Estimated cost",
   "Language": "Language",
   "Choose the interface language.": "Choose the interface language.",
   "Settings": "Settings",

@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte'
   import { loadChats, saveChat, removeChats, loadBackground, saveBackground, removeBackgrounds, type Chat, type Message } from './lib/chats'
   import Code from './lib/Code.svelte'
+  import MessageStats from './lib/MessageStats.svelte'
   import Select from './lib/Select.svelte'
   import { language, languages, parseLanguage, t, type Translator } from './lib/i18n'
   import { configScriptHelp, createConnection, duplicateConnection, evaluateConnection, fieldsScriptHelp, parseConnections, type Connection } from './lib/connections'
@@ -61,6 +62,7 @@
   let activeChatId = ''
   let controller: AbortController | undefined
   let requestVersion = 0
+  let requestStartedAt: number | undefined
   $: visibleChats = chats.filter((chat) => chat.profileId === activeProfileId).sort((a, b) => b.updatedAt - a.updatedAt)
   $: if (ready) persistChat(messages, prompt, pendingImages, tokenUsage, chatUsage, pendingUsage)
   let page: 'chat' | 'settings' = 'chat'
@@ -625,15 +627,6 @@
     }
   }
 
-  function messageTiming({ tokensPerSecond, timeToFirstToken }: Message, translate: Translator) {
-    const parts = []
-    if (tokensPerSecond) parts.push(translate('{count} tokens/s', { count: tokensPerSecond.toFixed(1) }))
-    if (timeToFirstToken != null) {
-      parts.push(translate('{time} to first token', { time: timeToFirstToken >= 1000 ? `${(timeToFirstToken / 1000).toFixed(1)}s` : `${Math.round(timeToFirstToken)}ms` }))
-    }
-    return parts.join(' · ')
-  }
-
   function syncStreamingReasoningOpen(index: number, details: HTMLDetailsElement) {
     if (loading && index === messages.length - 1) streamingReasoningOpen = details.open
   }
@@ -688,12 +681,21 @@
     controller = new AbortController()
     const signal = controller.signal
     const live = evaluated.effective
+    const prices = {
+      cacheHit: readPrice(live.cacheHitPrice) ?? 0,
+      cacheMiss: readPrice(live.cacheMissPrice) ?? 0,
+      output: readPrice(live.outputPrice) ?? 0,
+    }
+    const messageCost = (usage: TokenUsage | undefined) => usage
+      ? { amount: usageCost(usage, prices), currency: live.currency }
+      : undefined
     const instructions = systemPrompt.trim()
     loading = true
     pendingUsage = undefined
     await showMessages(nextMessages)
     if (version !== requestVersion) return
     const requestedAt = performance.now()
+    requestStartedAt = requestedAt
 
     try {
       const reasoning = reasoningConfig(live.reasoningEffort)
@@ -726,10 +728,17 @@
         let countedFromUsage = false
         let tokensPerSecond: number | undefined
         let timeToFirstToken: number | undefined
-        const assistant = () => ({ role: 'assistant' as const, content: reply, reasoning, tokensPerSecond, timeToFirstToken })
+        let usage: TokenUsage | undefined
+        const assistant = (): Message => ({
+          role: 'assistant', content: reply, reasoning, tokensPerSecond, timeToFirstToken,
+          elapsedMs: performance.now() - requestedAt,
+          usage,
+          cost: messageCost(usage),
+        })
         for await (const event of responseDeltas(response.body)) {
           if (version !== requestVersion) return
           if (event.type === 'usage') {
+            usage = event.usage
             tokenUsage = event.usage
             pendingUsage = event.usage
             if (event.usage.output) {
@@ -746,6 +755,7 @@
           tokensPerSecond = startedAt ? outputSpeed(tokens, performance.now() - startedAt) : undefined
           await showMessages([...nextMessages, assistant()])
         }
+        if (version !== requestVersion) return
         if (!reply) throw new Error('The service returned an empty response.')
       } else {
         const data = await readResponseJson(response).catch((): unknown => undefined)
@@ -756,12 +766,16 @@
           role: 'assistant',
           content: extractResponseText(data),
           reasoning: extractResponseReasoning(data),
+          elapsedMs: performance.now() - requestedAt,
+          usage: tokenUsage,
+          cost: messageCost(tokenUsage),
         }])
       }
     } catch (cause) {
       if (version === requestVersion) error = cause instanceof Error ? cause.message : 'Request failed. Please try again.'
     } finally {
       if (version === requestVersion) {
+        finishResponseTiming()
         if (pendingUsage) chatUsage = addUsage(chatUsage, pendingUsage)
         pendingUsage = undefined
         loading = false
@@ -857,7 +871,17 @@
     })
   }
 
+  function finishResponseTiming() {
+    if (requestStartedAt === undefined) return
+    const elapsedMs = performance.now() - requestStartedAt
+    messages = messages.map((message, index) => index === messages.length - 1 && message.role === 'assistant'
+      ? { ...message, elapsedMs }
+      : message)
+    requestStartedAt = undefined
+  }
+
   function stopResponse() {
+    finishResponseTiming()
     requestVersion += 1
     controller?.abort()
     controller = undefined
@@ -1154,10 +1178,7 @@
                   </div>
                   <div class="message-meta">
                     {#if message.role === 'assistant'}
-                      {@const timing = messageTiming(message, $t)}
-                      {#if timing}
-                        <p class="message-speed">{timing}</p>
-                      {/if}
+                      <MessageStats {message} />
                     {/if}
                     <div class="message-actions">
                       <button type="button" onclick={() => copyMessage(message.content, index)}>

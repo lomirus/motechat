@@ -1,4 +1,10 @@
 {
+  "Token speed": "Vitesse des tokens",
+  "Time to first token": "Délai du premier token",
+  "Elapsed time": "Temps écoulé",
+  "Input tokens": "Tokens d’entrée",
+  "Output tokens": "Tokens de sortie",
+  "Estimated cost": "Coût estimé",
   "Language": "Langue",
   "Choose the interface language.": "Choisissez la langue de l’interface.",
   "Settings": "Paramètres",

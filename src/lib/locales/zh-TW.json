@@ -1,4 +1,10 @@
 {
+  "Token speed": "Token 速度",
+  "Time to first token": "首字延遲",
+  "Elapsed time": "耗時",
+  "Input tokens": "上行 token 數",
+  "Output tokens": "下行 token 數",
+  "Estimated cost": "預估費用",
   "Language": "語言",
   "Choose the interface language.": "選擇介面語言。",
   "Settings": "設定",
