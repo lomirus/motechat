@@ -680,6 +680,10 @@ h1, h2, p {
   padding-top: 3px;
 }
 
+.assistant:has(.reasoning) .message-content {
+  padding-top: 7px;
+}
+
 .message-text {
   white-space: pre-wrap;
 }
@@ -874,8 +878,8 @@ h1, h2, p {
 
 .avatar {
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   overflow: hidden;
   border: 1px solid var(--border-strong);
   border-radius: 50%;
