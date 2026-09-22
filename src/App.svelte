@@ -66,7 +66,7 @@
   let requestVersion = 0
   let requestStartedAt: number | undefined
   $: visibleChats = chats.filter((chat) => chat.profileId === activeProfileId).sort((a, b) => b.updatedAt - a.updatedAt)
-  $: if (ready) persistChat(messages, prompt, pendingImages, tokenUsage, chatUsage, pendingUsage)
+  $: if (ready) persistChat(messages, prompt, pendingImages, tokenUsage, chatUsage, pendingUsage, loading)
   let page: 'chat' | 'settings' = 'chat'
   let theme: Theme = 'system'
   $: document.documentElement.lang = $language
@@ -853,7 +853,15 @@
     await requestResponse([...messages.slice(0, index), { role: 'user', content, ...(images.length ? { images } : {}) }])
   }
 
-  function persistChat(next: Message[], draft: string, images: string[], usage?: TokenUsage, total?: TokenUsage, pending?: TokenUsage) {
+  function persistChat(
+    next: Message[],
+    draft: string,
+    images: string[],
+    usage?: TokenUsage,
+    total?: TokenUsage,
+    pending?: TokenUsage,
+    deferSave = false,
+  ) {
     const current = chats.find((chat) => chat.id === activeChatId)
     if (!current) return
     const first = next.find((message) => message.role === 'user')
@@ -868,6 +876,11 @@
       chatUsage: pending ? addUsage(total, pending) : total,
     }
     chats = chats.map((item) => item.id === chat.id ? chat : item)
+    // Streaming can update once per token. Persisting every update clones the
+    // entire conversation, including base64 image attachments, and can exhaust
+    // the browser heap. Keep the in-memory chat current, then save once loading
+    // finishes (or when stopResponse explicitly flushes it).
+    if (deferSave) return
     void saveChat(chat).catch(() => {
       storageError = 'Could not save this conversation locally. Check browser storage; keep this page open to retain your messages.'
     })
