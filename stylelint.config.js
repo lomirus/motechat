@@ -8,4 +8,4 @@ export default {
     "@stylistic/block-closing-brace-newline-after": "always",
     "@stylistic/declaration-block-semicolon-newline-after": "always",
   },
-}
+};

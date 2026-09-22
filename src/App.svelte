@@ -1,14 +1,14 @@
 <script lang="ts">
-  import Icon from './lib/Icon.svelte'
-  import ContextRing from './lib/ContextRing.svelte'
-  import { onMount, tick } from 'svelte'
-  import { loadChats, saveChat, removeChats, loadBackground, saveBackground, removeBackgrounds, type Chat, type Message } from './lib/chats'
-  import Code from './lib/Code.svelte'
-  import MessageStats from './lib/MessageStats.svelte'
-  import Select from './lib/Select.svelte'
-  import { language, languages, parseLanguage, t, type Translator } from './lib/i18n'
-  import { configScriptHelp, createConnection, duplicateConnection, evaluateConnection, fieldsScriptHelp, parseConnections, type Connection } from './lib/connections'
-  import { createProfile, parseProfiles, type Profile } from './lib/profiles'
+  import Icon from './lib/Icon.svelte';
+  import ContextRing from './lib/ContextRing.svelte';
+  import { onMount, tick } from 'svelte';
+  import { loadChats, saveChat, removeChats, loadBackground, saveBackground, removeBackgrounds, type Chat, type Message } from './lib/chats';
+  import Code from './lib/Code.svelte';
+  import MessageStats from './lib/MessageStats.svelte';
+  import Select from './lib/Select.svelte';
+  import { language, languages, parseLanguage, t, type Translator } from './lib/i18n';
+  import { configScriptHelp, createConnection, duplicateConnection, evaluateConnection, fieldsScriptHelp, parseConnections, type Connection } from './lib/connections';
+  import { createProfile, parseProfiles, type Profile } from './lib/profiles';
   import {
     extractModelIds,
     extractResponseReasoning,
@@ -33,19 +33,19 @@
     type Currency,
     type ReasoningEffort,
     type TokenUsage,
-  } from './lib/responses'
+  } from './lib/responses';
 
   type Theme = 'system' | 'light' | 'dark'
 
-  const storageKey = 'saga-settings' // Keep existing users' saved connections and preferences.
-  const maxPendingImages = 8
-  const contextRing = 2 * Math.PI * 9
+  const storageKey = 'saga-settings'; // Keep existing users' saved connections and preferences.
+  const maxPendingImages = 8;
+  const contextRing = 2 * Math.PI * 9;
   const usageLabels: Record<string, string> = {
     cached: 'Cached',
     input: 'Input',
     reasoning: 'Reasoning',
     output: 'Output',
-  }
+  };
   const reasoningEffortOptions: [ReasoningEffort | '', string][] = [
     ['', 'Default'],
     ['none', 'None'],
@@ -55,53 +55,53 @@
     ['high', 'High'],
     ['xhigh', 'Extra High'],
     ['max', 'Max'],
-  ]
+  ];
 
-  let ready = false
-  let storageError = ''
-  let sidebarVisible = true
-  let chats: Chat[] = []
-  let activeChatId = ''
-  let controller: AbortController | undefined
-  let requestVersion = 0
-  let requestStartedAt: number | undefined
-  $: visibleChats = chats.filter((chat) => chat.profileId === activeProfileId).sort((a, b) => b.updatedAt - a.updatedAt)
-  $: if (ready) persistChat(messages, prompt, pendingImages, tokenUsage, chatUsage, pendingUsage, loading)
-  let page: 'chat' | 'settings' = 'chat'
-  let theme: Theme = 'system'
-  $: document.documentElement.lang = $language
-  let connections: Connection[] = parseConnections({}).connections
-  let activeConnectionId = connections[0].id
-  let connectionName = connections[0].name
-  let apiKey = ''
-  let baseUrl = ''
-  let model = ''
-  let contextLength: number | null = null
-  let currency: Currency = 'CNY'
-  let cacheHitPrice: number | null = null
-  let cacheMissPrice: number | null = null
-  let outputPrice: number | null = null
-  let tokenUsage: TokenUsage | undefined = undefined
-  let chatUsage: TokenUsage | undefined = undefined
-  let pendingUsage: TokenUsage | undefined = undefined
-  let availableModels: string[] = []
-  let modelsLoading = false
-  let modelsError = ''
-  let profiles: Profile[] = [{ id: 'default', name: 'Default', systemPrompt: '', icon: '', background: '' }]
-  let activeProfileId = 'default'
-  let profileName = 'Default'
-  let profileIcon = ''
-  let profileBackground = ''
-  let backgroundToken = 0
-  let iconError = ''
-  let backgroundError = ''
-  let profileMenuOpen = false
-  let systemPrompt = ''
-  let showApiKey = false
-  let reasoningEffort: ReasoningEffort | '' = ''
-  let fieldsScript = ''
-  let configScript = ''
-  let selected: Record<string, string> = {}
+  let ready = false;
+  let storageError = '';
+  let sidebarVisible = true;
+  let chats: Chat[] = [];
+  let activeChatId = '';
+  let controller: AbortController | undefined;
+  let requestVersion = 0;
+  let requestStartedAt: number | undefined;
+  $: visibleChats = chats.filter((chat) => chat.profileId === activeProfileId).sort((a, b) => b.updatedAt - a.updatedAt);
+  $: if (ready) persistChat(messages, prompt, pendingImages, tokenUsage, chatUsage, pendingUsage, loading);
+  let page: 'chat' | 'settings' = 'chat';
+  let theme: Theme = 'system';
+  $: document.documentElement.lang = $language;
+  let connections: Connection[] = parseConnections({}).connections;
+  let activeConnectionId = connections[0].id;
+  let connectionName = connections[0].name;
+  let apiKey = '';
+  let baseUrl = '';
+  let model = '';
+  let contextLength: number | null = null;
+  let currency: Currency = 'CNY';
+  let cacheHitPrice: number | null = null;
+  let cacheMissPrice: number | null = null;
+  let outputPrice: number | null = null;
+  let tokenUsage: TokenUsage | undefined = undefined;
+  let chatUsage: TokenUsage | undefined = undefined;
+  let pendingUsage: TokenUsage | undefined = undefined;
+  let availableModels: string[] = [];
+  let modelsLoading = false;
+  let modelsError = '';
+  let profiles: Profile[] = [{ id: 'default', name: 'Default', systemPrompt: '', icon: '', background: '' }];
+  let activeProfileId = 'default';
+  let profileName = 'Default';
+  let profileIcon = '';
+  let profileBackground = '';
+  let backgroundToken = 0;
+  let iconError = '';
+  let backgroundError = '';
+  let profileMenuOpen = false;
+  let systemPrompt = '';
+  let showApiKey = false;
+  let reasoningEffort: ReasoningEffort | '' = '';
+  let fieldsScript = '';
+  let configScript = '';
+  let selected: Record<string, string> = {};
   $: evaluated = evaluateConnection({
     id: activeConnectionId,
     name: connectionName,
@@ -118,115 +118,115 @@
     fieldsScript,
     configScript,
     selected,
-  })
-  let prompt = ''
-  let pendingImages: string[] = []
-  let editImages: string[] = []
-  let imageTarget: 'pending' | 'edit' = 'pending'
-  let attaching = false
-  let dragging = false
-  let messages: Message[] = []
-  let loading = false
-  let streamingReasoningOpen = true
-  let error = ''
-  let copiedMessage: number | null = null
-  let editingMessage: number | null = null
-  let editPrompt = ''
-  let form: HTMLFormElement
-  let fileInput: HTMLInputElement
-  let iconInput: HTMLInputElement
-  let backgroundInput: HTMLInputElement
-  let textarea: HTMLTextAreaElement
-  let editTextarea: HTMLTextAreaElement
-  let messageEnd: HTMLDivElement
-  let scrollbar: HTMLDivElement
-  let scrollable = false
-  let scrollThumbHeight = 0
-  let scrollThumbTop = 0
-  let dragOffset: number | null = null
+  });
+  let prompt = '';
+  let pendingImages: string[] = [];
+  let editImages: string[] = [];
+  let imageTarget: 'pending' | 'edit' = 'pending';
+  let attaching = false;
+  let dragging = false;
+  let messages: Message[] = [];
+  let loading = false;
+  let streamingReasoningOpen = true;
+  let error = '';
+  let copiedMessage: number | null = null;
+  let editingMessage: number | null = null;
+  let editPrompt = '';
+  let form: HTMLFormElement;
+  let fileInput: HTMLInputElement;
+  let iconInput: HTMLInputElement;
+  let backgroundInput: HTMLInputElement;
+  let textarea: HTMLTextAreaElement;
+  let editTextarea: HTMLTextAreaElement;
+  let messageEnd: HTMLDivElement;
+  let scrollbar: HTMLDivElement;
+  let scrollable = false;
+  let scrollThumbHeight = 0;
+  let scrollThumbTop = 0;
+  let dragOffset: number | null = null;
 
   onMount(() => {
     try {
-      const stored = parseJson(localStorage.getItem(storageKey) || '{}')
+      const stored = parseJson(localStorage.getItem(storageKey) || '{}');
       if (isRecord(stored)) {
-        language.set(parseLanguage(stored.language))
-        sidebarVisible = stored.sidebarVisible !== false
-        activeChatId = typeof stored.activeChatId === 'string' ? stored.activeChatId : ''
-        theme = stored.theme === 'light' || stored.theme === 'dark' ? stored.theme : 'system'
-        const parsedProfiles = parseProfiles(stored)
-        profiles = parsedProfiles.profiles
-        activeProfileId = parsedProfiles.activeProfileId
+        language.set(parseLanguage(stored.language));
+        sidebarVisible = stored.sidebarVisible !== false;
+        activeChatId = typeof stored.activeChatId === 'string' ? stored.activeChatId : '';
+        theme = stored.theme === 'light' || stored.theme === 'dark' ? stored.theme : 'system';
+        const parsedProfiles = parseProfiles(stored);
+        profiles = parsedProfiles.profiles;
+        activeProfileId = parsedProfiles.activeProfileId;
         const legacyBackgrounds = profiles.flatMap((profile) => (
           profile.background.startsWith('data:') ? [{ id: profile.id, data: profile.background }] : []
-        ))
-        profiles = profiles.map((profile) => (profile.background ? { ...profile, background: '' } : profile))
-        loadActiveProfile()
-        void migrateLegacyBackgrounds(legacyBackgrounds).then(() => showStoredBackground())
-        const parsedConnections = parseConnections(stored)
-        connections = parsedConnections.connections
-        activeConnectionId = parsedConnections.activeConnectionId
-        loadActiveConnection()
+        ));
+        profiles = profiles.map((profile) => (profile.background ? { ...profile, background: '' } : profile));
+        loadActiveProfile();
+        void migrateLegacyBackgrounds(legacyBackgrounds).then(() => showStoredBackground());
+        const parsedConnections = parseConnections(stored);
+        connections = parsedConnections.connections;
+        activeConnectionId = parsedConnections.activeConnectionId;
+        loadActiveConnection();
       }
     } catch {
       // Ignore malformed local preferences and keep safe defaults.
     }
-    applyTheme(theme)
-    let mounted = true
+    applyTheme(theme);
+    let mounted = true;
     void loadChats().then((saved) => {
-      if (!mounted) return
-      chats = saved.filter((chat) => profiles.some((profile) => profile.id === chat.profileId))
+      if (!mounted) return;
+      chats = saved.filter((chat) => profiles.some((profile) => profile.id === chat.profileId));
     }).catch(() => {
-      storageError = 'Could not load local conversations. Reload the page to try again.'
+      storageError = 'Could not load local conversations. Reload the page to try again.';
     }).finally(() => {
-      if (!mounted) return
-      const previous = chats.find((chat) => chat.id === activeChatId)
-      activeChatId = ''
-      if (previous) activateChat(previous)
-      else createChat()
-      ready = true
-      applyRoute()
-    })
-    window.addEventListener('hashchange', applyRoute)
+      if (!mounted) return;
+      const previous = chats.find((chat) => chat.id === activeChatId);
+      activeChatId = '';
+      if (previous) activateChat(previous);
+      else createChat();
+      ready = true;
+      applyRoute();
+    });
+    window.addEventListener('hashchange', applyRoute);
 
-    const resizeObserver = new ResizeObserver(updateScrollbar)
-    resizeObserver.observe(document.body)
-    window.addEventListener('scroll', updateScrollbar, { passive: true })
-    window.addEventListener('resize', updateScrollbar)
-    updateScrollbar()
+    const resizeObserver = new ResizeObserver(updateScrollbar);
+    resizeObserver.observe(document.body);
+    window.addEventListener('scroll', updateScrollbar, { passive: true });
+    window.addEventListener('resize', updateScrollbar);
+    updateScrollbar();
 
     return () => {
-      mounted = false
-      stopResponse()
-      window.removeEventListener('hashchange', applyRoute)
-      resizeObserver.disconnect()
-      window.removeEventListener('scroll', updateScrollbar)
-      window.removeEventListener('resize', updateScrollbar)
-    }
-  })
+      mounted = false;
+      stopResponse();
+      window.removeEventListener('hashchange', applyRoute);
+      resizeObserver.disconnect();
+      window.removeEventListener('scroll', updateScrollbar);
+      window.removeEventListener('resize', updateScrollbar);
+    };
+  });
 
   function readPrice(value: unknown): number | null {
-    return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
   }
 
   function chooseLanguage(value: string) {
-    language.set(parseLanguage(value))
-    saveSettings()
+    language.set(parseLanguage(value));
+    saveSettings();
   }
 
   function applyTheme(value: Theme) {
-    if (value === 'system') delete document.documentElement.dataset.theme
-    else document.documentElement.dataset.theme = value
+    if (value === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = value;
   }
 
   function chooseTheme(value: Theme) {
-    theme = value
-    applyTheme(value)
-    saveSettings()
+    theme = value;
+    applyTheme(value);
+    saveSettings();
   }
 
   function chooseCurrency(value: Currency) {
-    currency = value
-    saveSettings()
+    currency = value;
+    saveSettings();
   }
 
   function persistActiveConnection() {
@@ -248,161 +248,161 @@
           configScript,
           selected,
         }
-      : connection)
+      : connection);
   }
 
   function loadActiveConnection() {
-    const active = connections.find((connection) => connection.id === activeConnectionId) ?? connections[0]
-    activeConnectionId = active.id
-    connectionName = active.name
-    apiKey = active.apiKey
-    baseUrl = active.baseUrl
-    model = active.model
-    contextLength = active.contextLength
-    currency = active.currency
-    cacheHitPrice = active.cacheHitPrice
-    cacheMissPrice = active.cacheMissPrice
-    outputPrice = active.outputPrice
-    availableModels = active.availableModels
-    reasoningEffort = active.reasoningEffort
-    fieldsScript = active.fieldsScript
-    configScript = active.configScript
-    selected = { ...active.selected }
-    modelsLoading = false
-    modelsError = ''
-    showApiKey = false
+    const active = connections.find((connection) => connection.id === activeConnectionId) ?? connections[0];
+    activeConnectionId = active.id;
+    connectionName = active.name;
+    apiKey = active.apiKey;
+    baseUrl = active.baseUrl;
+    model = active.model;
+    contextLength = active.contextLength;
+    currency = active.currency;
+    cacheHitPrice = active.cacheHitPrice;
+    cacheMissPrice = active.cacheMissPrice;
+    outputPrice = active.outputPrice;
+    availableModels = active.availableModels;
+    reasoningEffort = active.reasoningEffort;
+    fieldsScript = active.fieldsScript;
+    configScript = active.configScript;
+    selected = { ...active.selected };
+    modelsLoading = false;
+    modelsError = '';
+    showApiKey = false;
   }
 
   function switchConnection(id: string) {
-    if (id === activeConnectionId) return
-    persistActiveConnection()
-    activeConnectionId = id
-    loadActiveConnection()
-    saveSettings()
+    if (id === activeConnectionId) return;
+    persistActiveConnection();
+    activeConnectionId = id;
+    loadActiveConnection();
+    saveSettings();
   }
 
   function addConnection() {
-    persistActiveConnection()
-    const connection = createConnection(connections)
-    connections = [...connections, connection]
-    activeConnectionId = connection.id
-    loadActiveConnection()
-    saveSettings()
+    persistActiveConnection();
+    const connection = createConnection(connections);
+    connections = [...connections, connection];
+    activeConnectionId = connection.id;
+    loadActiveConnection();
+    saveSettings();
   }
 
   function copyConnection() {
-    persistActiveConnection()
-    const source = connections.find((connection) => connection.id === activeConnectionId) ?? connections[0]
-    const connection = duplicateConnection(source, connections)
-    connections = [...connections, connection]
-    activeConnectionId = connection.id
-    loadActiveConnection()
-    saveSettings()
+    persistActiveConnection();
+    const source = connections.find((connection) => connection.id === activeConnectionId) ?? connections[0];
+    const connection = duplicateConnection(source, connections);
+    connections = [...connections, connection];
+    activeConnectionId = connection.id;
+    loadActiveConnection();
+    saveSettings();
   }
 
   function deleteConnection() {
-    if (connections.length < 2 || !confirm($t('Delete connection "{name}"?', { name: connectionName }))) return
-    const deletedId = activeConnectionId
-    connections = connections.filter((connection) => connection.id !== deletedId)
-    loadActiveConnection()
-    saveSettings()
+    if (connections.length < 2 || !confirm($t('Delete connection "{name}"?', { name: connectionName }))) return;
+    const deletedId = activeConnectionId;
+    connections = connections.filter((connection) => connection.id !== deletedId);
+    loadActiveConnection();
+    saveSettings();
   }
 
   function chooseOption(fieldId: string, optionId: string) {
-    selected = { ...selected, [fieldId]: optionId }
-    saveSettings()
+    selected = { ...selected, [fieldId]: optionId };
+    saveSettings();
   }
 
   function persistActiveProfile() {
     profiles = profiles.map((profile) => profile.id === activeProfileId
       ? { ...profile, name: profileName.trim() || profile.name, systemPrompt: systemPrompt.trim(), icon: profileIcon, background: '' }
-      : profile)
+      : profile);
   }
 
   function loadActiveProfile() {
-    const active = profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0]
-    activeProfileId = active.id
-    profileName = active.name
-    profileIcon = active.icon
-    systemPrompt = active.systemPrompt
-    iconError = ''
-    backgroundError = ''
-    void showStoredBackground()
+    const active = profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0];
+    activeProfileId = active.id;
+    profileName = active.name;
+    profileIcon = active.icon;
+    systemPrompt = active.systemPrompt;
+    iconError = '';
+    backgroundError = '';
+    void showStoredBackground();
   }
 
   function setBackgroundUrl(url: string) {
-    if (profileBackground.startsWith('blob:')) URL.revokeObjectURL(profileBackground)
-    profileBackground = url
+    if (profileBackground.startsWith('blob:')) URL.revokeObjectURL(profileBackground);
+    profileBackground = url;
   }
 
   async function showStoredBackground() {
-    const profileId = activeProfileId
-    const token = ++backgroundToken
+    const profileId = activeProfileId;
+    const token = ++backgroundToken;
     try {
-      const blob = await loadBackground(profileId)
-      if (token !== backgroundToken) return
-      setBackgroundUrl(blob ? URL.createObjectURL(blob) : '')
+      const blob = await loadBackground(profileId);
+      if (token !== backgroundToken) return;
+      setBackgroundUrl(blob ? URL.createObjectURL(blob) : '');
     } catch {
-      if (token !== backgroundToken) return
-      setBackgroundUrl('')
+      if (token !== backgroundToken) return;
+      setBackgroundUrl('');
     }
   }
 
   async function migrateLegacyBackgrounds(leftover: { id: string; data: string }[]) {
-    if (!leftover.length) return
+    if (!leftover.length) return;
     for (const profile of leftover) {
       try {
-        const blob = await (await fetch(profile.data)).blob()
-        if (blob.size) await saveBackground(profile.id, blob)
+        const blob = await (await fetch(profile.data)).blob();
+        if (blob.size) await saveBackground(profile.id, blob);
       } catch {
         // Skip a broken data URL; it is already off the profile record.
       }
     }
-    saveSettings()
+    saveSettings();
   }
 
   function switchProfile(id: string) {
-    if (id === activeProfileId) return
-    stopResponse()
-    persistActiveProfile()
-    activeProfileId = id
-    loadActiveProfile()
-    selectProfileChat()
-    saveSettings()
+    if (id === activeProfileId) return;
+    stopResponse();
+    persistActiveProfile();
+    activeProfileId = id;
+    loadActiveProfile();
+    selectProfileChat();
+    saveSettings();
   }
 
   function addProfile() {
-    stopResponse()
-    persistActiveProfile()
-    const profile = createProfile(profiles)
-    profiles = [...profiles, profile]
-    activeProfileId = profile.id
-    loadActiveProfile()
-    selectProfileChat()
-    saveSettings()
+    stopResponse();
+    persistActiveProfile();
+    const profile = createProfile(profiles);
+    profiles = [...profiles, profile];
+    activeProfileId = profile.id;
+    loadActiveProfile();
+    selectProfileChat();
+    saveSettings();
   }
 
   async function deleteProfile() {
-    if (profiles.length < 2 || !confirm($t('Delete profile "{name}" and all its conversations?', { name: profileName }))) return
-    stopResponse()
-    const deletedId = activeProfileId
+    if (profiles.length < 2 || !confirm($t('Delete profile "{name}" and all its conversations?', { name: profileName }))) return;
+    stopResponse();
+    const deletedId = activeProfileId;
     try {
-      await removeChats(chats.filter((chat) => chat.profileId === deletedId).map((chat) => chat.id))
-      await removeBackgrounds([deletedId])
+      await removeChats(chats.filter((chat) => chat.profileId === deletedId).map((chat) => chat.id));
+      await removeBackgrounds([deletedId]);
     } catch {
-      storageError = 'Could not delete local conversations. Please try again.'
-      return
+      storageError = 'Could not delete local conversations. Please try again.';
+      return;
     }
-    chats = chats.filter((chat) => chat.profileId !== deletedId)
-    profiles = profiles.filter((profile) => profile.id !== deletedId)
-    loadActiveProfile()
-    selectProfileChat()
-    saveSettings()
+    chats = chats.filter((chat) => chat.profileId !== deletedId);
+    profiles = profiles.filter((profile) => profile.id !== deletedId);
+    loadActiveProfile();
+    selectProfileChat();
+    saveSettings();
   }
 
   function saveSettings() {
-    persistActiveProfile()
-    persistActiveConnection()
+    persistActiveProfile();
+    persistActiveConnection();
     try {
       localStorage.setItem(storageKey, JSON.stringify({
       theme,
@@ -413,209 +413,209 @@
       activeProfileId,
       activeChatId,
       sidebarVisible,
-      }))
+      }));
     } catch {
-      storageError = 'Could not save local settings. Check browser storage and try again.'
+      storageError = 'Could not save local settings. Check browser storage and try again.';
     }
   }
 
   function resizeTextarea(element: HTMLTextAreaElement) {
-    element.style.height = 'auto'
-    element.style.height = `${Math.min(element.scrollHeight, 180)}px`
+    element.style.height = 'auto';
+    element.style.height = `${Math.min(element.scrollHeight, 180)}px`;
   }
 
   function readImage(file: File) {
-    const problem = imageFileError(file)
-    if (problem) return Promise.reject(new Error(problem))
+    const problem = imageFileError(file);
+    if (problem) return Promise.reject(new Error(problem));
     // ponytail: data URLs keep preview and payload as one string; 8×10MB ceiling. Upgrade: POST /files and send file_id.
     return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
+      const reader = new FileReader();
       reader.onload = () => typeof reader.result === 'string'
         ? resolve(reader.result)
-        : reject(new Error('Could not read this image.'))
-      reader.onerror = () => reject(new Error('Could not read this image.'))
-      reader.readAsDataURL(file)
-    })
+        : reject(new Error('Could not read this image.'));
+      reader.onerror = () => reject(new Error('Could not read this image.'));
+      reader.readAsDataURL(file);
+    });
   }
 
-  const profileIconSize = 128
-  const backgroundMaxEdge = 3840
-  const backgroundQuality = 0.92
+  const profileIconSize = 128;
+  const backgroundMaxEdge = 3840;
+  const backgroundQuality = 0.92;
   // ponytail: AVIF at 0.92, 3840px cap. Upgrade: store the original file when it's already small enough.
 
   function readIcon(file: File) {
     return readImage(file).then((src) => new Promise<string>((resolve, reject) => {
-      const image = new Image()
+      const image = new Image();
       image.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = profileIconSize
-        canvas.height = profileIconSize
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return resolve(src)
-        const scale = Math.max(profileIconSize / image.width, profileIconSize / image.height)
-        const width = image.width * scale
-        const height = image.height * scale
-        ctx.drawImage(image, (profileIconSize - width) / 2, (profileIconSize - height) / 2, width, height)
-        resolve(canvas.toDataURL('image/png'))
-      }
-      image.onerror = () => reject(new Error('Could not read this image.'))
-      image.src = src
-    }))
+        const canvas = document.createElement('canvas');
+        canvas.width = profileIconSize;
+        canvas.height = profileIconSize;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(src);
+        const scale = Math.max(profileIconSize / image.width, profileIconSize / image.height);
+        const width = image.width * scale;
+        const height = image.height * scale;
+        ctx.drawImage(image, (profileIconSize - width) / 2, (profileIconSize - height) / 2, width, height);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      image.onerror = () => reject(new Error('Could not read this image.'));
+      image.src = src;
+    }));
   }
 
   async function encodeBackground(file: File) {
-    const problem = imageFileError(file, Infinity)
-    if (problem) throw new Error(problem)
-    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    const problem = imageFileError(file, Infinity);
+    if (problem) throw new Error(problem);
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     try {
-      const scale = Math.min(1, backgroundMaxEdge / Math.max(bitmap.width, bitmap.height))
-      if (file.type === 'image/avif' && scale === 1) return file
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.round(bitmap.width * scale)
-      canvas.height = Math.round(bitmap.height * scale)
-      const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('Could not encode this image.')
-      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/avif', backgroundQuality))
-      if (!blob?.size) throw new Error('Could not encode this image.')
-      return blob
+      const scale = Math.min(1, backgroundMaxEdge / Math.max(bitmap.width, bitmap.height));
+      if (file.type === 'image/avif' && scale === 1) return file;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Could not encode this image.');
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/avif', backgroundQuality));
+      if (!blob?.size) throw new Error('Could not encode this image.');
+      return blob;
     } finally {
-      bitmap.close()
+      bitmap.close();
     }
   }
 
   async function setProfileIcon(files: File[]) {
-    const file = files[0]
-    if (!file) return
+    const file = files[0];
+    if (!file) return;
     try {
-      profileIcon = await readIcon(file)
-      iconError = ''
-      saveSettings()
+      profileIcon = await readIcon(file);
+      iconError = '';
+      saveSettings();
     } catch (cause) {
-      iconError = cause instanceof Error ? cause.message : 'Could not add this image.'
+      iconError = cause instanceof Error ? cause.message : 'Could not add this image.';
     }
   }
 
   async function setProfileBackground(files: File[]) {
-    const file = files[0]
-    if (!file) return
+    const file = files[0];
+    if (!file) return;
     try {
-      const blob = await encodeBackground(file)
-      await saveBackground(activeProfileId, blob)
-      setBackgroundUrl(URL.createObjectURL(blob))
-      backgroundError = ''
-      saveSettings()
+      const blob = await encodeBackground(file);
+      await saveBackground(activeProfileId, blob);
+      setBackgroundUrl(URL.createObjectURL(blob));
+      backgroundError = '';
+      saveSettings();
     } catch (cause) {
-      backgroundError = cause instanceof Error ? cause.message : 'Could not add this image.'
+      backgroundError = cause instanceof Error ? cause.message : 'Could not add this image.';
     }
   }
 
   async function addImages(files: File[], into: 'pending' | 'edit' = 'pending') {
-    if (!files.length) return
-    const chatId = activeChatId
-    attaching = true
+    if (!files.length) return;
+    const chatId = activeChatId;
+    attaching = true;
     try {
-      let next = [...(into === 'edit' ? editImages : pendingImages)]
+      let next = [...(into === 'edit' ? editImages : pendingImages)];
       for (const file of files) {
         if (next.length >= maxPendingImages) {
-          error = $t('You can attach up to {count} images.', { count: maxPendingImages })
-          break
+          error = $t('You can attach up to {count} images.', { count: maxPendingImages });
+          break;
         }
-        next = [...next, await readImage(file)]
-        if (chatId !== activeChatId) return
-        if (into === 'edit') editImages = next
-        else pendingImages = next
-        error = ''
+        next = [...next, await readImage(file)];
+        if (chatId !== activeChatId) return;
+        if (into === 'edit') editImages = next;
+        else pendingImages = next;
+        error = '';
       }
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Could not add this image.'
+      error = cause instanceof Error ? cause.message : 'Could not add this image.';
     } finally {
-      attaching = false
+      attaching = false;
     }
   }
 
   function removeImage(index: number, into: 'pending' | 'edit' = 'pending') {
-    if (into === 'edit') editImages = editImages.filter((_, imageIndex) => imageIndex !== index)
-    else pendingImages = pendingImages.filter((_, imageIndex) => imageIndex !== index)
+    if (into === 'edit') editImages = editImages.filter((_, imageIndex) => imageIndex !== index);
+    else pendingImages = pendingImages.filter((_, imageIndex) => imageIndex !== index);
   }
 
   function handlePaste(event: ClipboardEvent, into: 'pending' | 'edit' = 'pending') {
-    const files = [...(event.clipboardData?.files ?? [])]
-    if (!files.length) return
-    if (!event.clipboardData?.getData('text/plain')) event.preventDefault()
-    addImages(files, into)
+    const files = [...(event.clipboardData?.files ?? [])];
+    if (!files.length) return;
+    if (!event.clipboardData?.getData('text/plain')) event.preventDefault();
+    addImages(files, into);
   }
 
   function pickImages(into: 'pending' | 'edit') {
-    imageTarget = into
-    fileInput.click()
+    imageTarget = into;
+    fileInput.click();
   }
 
   function updateScrollbar() {
-    if (!scrollbar) return
-    const root = document.documentElement
-    const trackHeight = scrollbar.clientHeight
-    scrollable = root.scrollHeight > root.clientHeight
-    scrollThumbHeight = scrollable ? Math.max(36, trackHeight * root.clientHeight / root.scrollHeight) : trackHeight
+    if (!scrollbar) return;
+    const root = document.documentElement;
+    const trackHeight = scrollbar.clientHeight;
+    scrollable = root.scrollHeight > root.clientHeight;
+    scrollThumbHeight = scrollable ? Math.max(36, trackHeight * root.clientHeight / root.scrollHeight) : trackHeight;
     scrollThumbTop = scrollable
       ? (trackHeight - scrollThumbHeight) * root.scrollTop / (root.scrollHeight - root.clientHeight)
-      : 0
+      : 0;
   }
 
   function scrollFromPointer(clientY: number) {
-    if (dragOffset === null) return
-    const root = document.documentElement
-    const track = scrollbar.getBoundingClientRect()
-    const travel = track.height - scrollThumbHeight
-    const top = Math.max(0, Math.min(travel, clientY - track.top - dragOffset))
-    window.scrollTo({ top: top / travel * (root.scrollHeight - root.clientHeight) })
+    if (dragOffset === null) return;
+    const root = document.documentElement;
+    const track = scrollbar.getBoundingClientRect();
+    const travel = track.height - scrollThumbHeight;
+    const top = Math.max(0, Math.min(travel, clientY - track.top - dragOffset));
+    window.scrollTo({ top: top / travel * (root.scrollHeight - root.clientHeight) });
   }
 
   function startScrollbarDrag(event: PointerEvent) {
-    if (!scrollable) return
-    const trackTop = scrollbar.getBoundingClientRect().top
+    if (!scrollable) return;
+    const trackTop = scrollbar.getBoundingClientRect().top;
     const pointerOnThumb = event.clientY >= trackTop + scrollThumbTop
-      && event.clientY <= trackTop + scrollThumbTop + scrollThumbHeight
-    dragOffset = pointerOnThumb ? event.clientY - trackTop - scrollThumbTop : scrollThumbHeight / 2
-    scrollbar.setPointerCapture(event.pointerId)
-    scrollFromPointer(event.clientY)
-    event.preventDefault()
+      && event.clientY <= trackTop + scrollThumbTop + scrollThumbHeight;
+    dragOffset = pointerOnThumb ? event.clientY - trackTop - scrollThumbTop : scrollThumbHeight / 2;
+    scrollbar.setPointerCapture(event.pointerId);
+    scrollFromPointer(event.clientY);
+    event.preventDefault();
   }
 
   function stopScrollbarDrag(event: PointerEvent) {
-    dragOffset = null
-    if (scrollbar.hasPointerCapture(event.pointerId)) scrollbar.releasePointerCapture(event.pointerId)
+    dragOffset = null;
+    if (scrollbar.hasPointerCapture(event.pointerId)) scrollbar.releasePointerCapture(event.pointerId);
   }
 
   function handleKeydown(event: KeyboardEvent, submit = () => form.requestSubmit()) {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
-      event.preventDefault()
-      submit()
+      event.preventDefault();
+      submit();
     }
   }
 
   async function showMessages(next: Message[]) {
-    const wasAtBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2
-    messages = next
-    await tick()
-    if (wasAtBottom) messageEnd?.scrollIntoView()
+    const wasAtBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
+    messages = next;
+    await tick();
+    if (wasAtBottom) messageEnd?.scrollIntoView();
   }
 
   function contextLimit() {
-    return typeof contextLength === 'number' && contextLength > 0 ? Math.floor(contextLength) : 0
+    return typeof contextLength === 'number' && contextLength > 0 ? Math.floor(contextLength) : 0;
   }
 
   function contextMeter(usage: TokenUsage | undefined, connection: Connection) {
-    const used = usage?.total ?? 0
-    const limit = typeof connection.contextLength === 'number' && connection.contextLength > 0 ? Math.floor(connection.contextLength) : 0
-    const ratio = limit ? Math.min(1, used / limit) : 0
-    const percent = Math.round(ratio * 100)
-    const parts = usageParts(usage)
+    const used = usage?.total ?? 0;
+    const limit = typeof connection.contextLength === 'number' && connection.contextLength > 0 ? Math.floor(connection.contextLength) : 0;
+    const ratio = limit ? Math.min(1, used / limit) : 0;
+    const percent = Math.round(ratio * 100);
+    const parts = usageParts(usage);
     const prices = {
       cacheHit: readPrice(connection.cacheHitPrice) ?? 0,
       cacheMiss: readPrice(connection.cacheMissPrice) ?? 0,
       output: readPrice(connection.outputPrice) ?? 0,
-    }
+    };
     return {
       used,
       limit,
@@ -626,81 +626,81 @@
       barFill: limit ? percent : used ? 100 : 0,
       cost: usageCost(usage, prices),
       total: usageCost(addUsage(chatUsage, pendingUsage), prices),
-    }
+    };
   }
 
   function syncStreamingReasoningOpen(index: number, details: HTMLDetailsElement) {
-    if (loading && index === messages.length - 1) streamingReasoningOpen = details.open
+    if (loading && index === messages.length - 1) streamingReasoningOpen = details.open;
   }
 
   function requestReady() {
-    const live = evaluated.effective
+    const live = evaluated.effective;
     if (evaluated.configError) {
-      error = evaluated.configError
-      return false
+      error = evaluated.configError;
+      return false;
     }
     if (!live.apiKey.trim() || !live.baseUrl.trim()) {
-      error = 'Add an API Key and Base URL in Settings first.'
-      return false
+      error = 'Add an API Key and Base URL in Settings first.';
+      return false;
     }
     if (!live.model.trim()) {
-      error = 'Select a model before sending a message.'
-      return false
+      error = 'Select a model before sending a message.';
+      return false;
     }
-    return true
+    return true;
   }
 
   async function refreshModels() {
-    if (!apiKey.trim() || !baseUrl.trim() || modelsLoading) return
-    const requestedId = activeConnectionId
-    modelsLoading = true
-    modelsError = ''
+    if (!apiKey.trim() || !baseUrl.trim() || modelsLoading) return;
+    const requestedId = activeConnectionId;
+    modelsLoading = true;
+    modelsError = '';
 
     try {
       const response = await fetch(modelsUrl(baseUrl), {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
-      })
-      const data = await readResponseJson(response).catch((): unknown => undefined)
-      if (!response.ok) throw new Error(responseErrorMessage(data) || $t('Request failed ({status}).', { status: response.status }))
-      if (activeConnectionId !== requestedId) return
-      availableModels = extractModelIds(data)
-      if (!availableModels.length) throw new Error('The service returned no models.')
-      saveSettings()
+      });
+      const data = await readResponseJson(response).catch((): unknown => undefined);
+      if (!response.ok) throw new Error(responseErrorMessage(data) || $t('Request failed ({status}).', { status: response.status }));
+      if (activeConnectionId !== requestedId) return;
+      availableModels = extractModelIds(data);
+      if (!availableModels.length) throw new Error('The service returned no models.');
+      saveSettings();
     } catch (cause) {
-      if (activeConnectionId !== requestedId) return
-      availableModels = []
-      modelsError = cause instanceof Error ? cause.message : 'Could not load models.'
+      if (activeConnectionId !== requestedId) return;
+      availableModels = [];
+      modelsError = cause instanceof Error ? cause.message : 'Could not load models.';
     } finally {
-      if (activeConnectionId === requestedId) modelsLoading = false
+      if (activeConnectionId === requestedId) modelsLoading = false;
     }
   }
 
   async function requestResponse(nextMessages: Message[]) {
-    error = ''
-    copiedMessage = null
-    streamingReasoningOpen = true
-    const version = ++requestVersion
-    controller = new AbortController()
-    const signal = controller.signal
-    const live = evaluated.effective
+    error = '';
+    copiedMessage = null;
+    streamingReasoningOpen = true;
+    const version = ++requestVersion;
+    controller = new AbortController();
+    const signal = controller.signal;
+    const live = evaluated.effective;
     const prices = {
       cacheHit: readPrice(live.cacheHitPrice) ?? 0,
       cacheMiss: readPrice(live.cacheMissPrice) ?? 0,
       output: readPrice(live.outputPrice) ?? 0,
-    }
+    };
     const messageCost = (usage: TokenUsage | undefined) => usage
       ? { amount: usageCost(usage, prices), currency: live.currency }
-      : undefined
-    const instructions = systemPrompt.trim()
-    loading = true
-    pendingUsage = undefined
-    await showMessages(nextMessages)
-    if (version !== requestVersion) return
-    const requestedAt = performance.now()
-    requestStartedAt = requestedAt
+      : undefined;
+    const instructions = systemPrompt.trim();
+    loading = true;
+    pendingUsage = undefined;
+    await showMessages(nextMessages);
+    if (version !== requestVersion) return;
+    const requestedAt = performance.now();
+    requestStartedAt = requestedAt;
 
     try {
-      const reasoning = reasoningConfig(live.reasoningEffort)
+      const reasoning = reasoningConfig(live.reasoningEffort);
       const response = await fetch(responsesUrl(live.baseUrl), {
         method: 'POST',
         signal,
@@ -715,55 +715,55 @@
           ...(instructions ? { instructions } : {}),
           ...(reasoning ? { reasoning } : {}),
         }),
-      })
-      if (version !== requestVersion) return
+      });
+      if (version !== requestVersion) return;
       if (!response.ok) {
-        const data = await readResponseJson(response).catch((): unknown => undefined)
-        throw new Error(responseErrorMessage(data) || $t('Request failed ({status}).', { status: response.status }))
+        const data = await readResponseJson(response).catch((): unknown => undefined);
+        throw new Error(responseErrorMessage(data) || $t('Request failed ({status}).', { status: response.status }));
       }
 
       if (response.body && response.headers.get('content-type')?.includes('text/event-stream')) {
-        let reply = ''
-        let reasoning = ''
-        let tokens = 0
-        let startedAt = 0
-        let countedFromUsage = false
-        let tokensPerSecond: number | undefined
-        let timeToFirstToken: number | undefined
-        let usage: TokenUsage | undefined
+        let reply = '';
+        let reasoning = '';
+        let tokens = 0;
+        let startedAt = 0;
+        let countedFromUsage = false;
+        let tokensPerSecond: number | undefined;
+        let timeToFirstToken: number | undefined;
+        let usage: TokenUsage | undefined;
         const assistant = (): Message => ({
           role: 'assistant', content: reply, reasoning, tokensPerSecond, timeToFirstToken,
           elapsedMs: performance.now() - requestedAt,
           usage,
           cost: messageCost(usage),
-        })
+        });
         for await (const event of responseDeltas(response.body)) {
-          if (version !== requestVersion) return
+          if (version !== requestVersion) return;
           if (event.type === 'usage') {
-            usage = event.usage
-            tokenUsage = event.usage
-            pendingUsage = event.usage
+            usage = event.usage;
+            tokenUsage = event.usage;
+            pendingUsage = event.usage;
             if (event.usage.output) {
-              countedFromUsage = true
-              tokens = event.usage.output
+              countedFromUsage = true;
+              tokens = event.usage.output;
             }
           } else {
-            if (!startedAt) startedAt = performance.now()
-            if (!countedFromUsage) tokens += 1
-            if (event.type === 'reasoning') reasoning += event.delta
-            else reply += event.delta
-            if (timeToFirstToken === undefined) timeToFirstToken = performance.now() - requestedAt
+            if (!startedAt) startedAt = performance.now();
+            if (!countedFromUsage) tokens += 1;
+            if (event.type === 'reasoning') reasoning += event.delta;
+            else reply += event.delta;
+            if (timeToFirstToken === undefined) timeToFirstToken = performance.now() - requestedAt;
           }
-          tokensPerSecond = startedAt ? outputSpeed(tokens, performance.now() - startedAt) : undefined
-          await showMessages([...nextMessages, assistant()])
+          tokensPerSecond = startedAt ? outputSpeed(tokens, performance.now() - startedAt) : undefined;
+          await showMessages([...nextMessages, assistant()]);
         }
-        if (version !== requestVersion) return
-        if (!reply) throw new Error('The service returned an empty response.')
+        if (version !== requestVersion) return;
+        if (!reply) throw new Error('The service returned an empty response.');
       } else {
-        const data = await readResponseJson(response).catch((): unknown => undefined)
-        if (version !== requestVersion) return
-        tokenUsage = extractUsage(data)
-        pendingUsage = tokenUsage
+        const data = await readResponseJson(response).catch((): unknown => undefined);
+        if (version !== requestVersion) return;
+        tokenUsage = extractUsage(data);
+        pendingUsage = tokenUsage;
         await showMessages([...nextMessages, {
           role: 'assistant',
           content: extractResponseText(data),
@@ -771,86 +771,86 @@
           elapsedMs: performance.now() - requestedAt,
           usage: tokenUsage,
           cost: messageCost(tokenUsage),
-        }])
+        }]);
       }
     } catch (cause) {
-      if (version === requestVersion) error = cause instanceof Error ? cause.message : 'Request failed. Please try again.'
+      if (version === requestVersion) error = cause instanceof Error ? cause.message : 'Request failed. Please try again.';
     } finally {
       if (version === requestVersion) {
-        finishResponseTiming()
-        if (pendingUsage) chatUsage = addUsage(chatUsage, pendingUsage)
-        pendingUsage = undefined
-        loading = false
-        controller = undefined
+        finishResponseTiming();
+        if (pendingUsage) chatUsage = addUsage(chatUsage, pendingUsage);
+        pendingUsage = undefined;
+        loading = false;
+        controller = undefined;
       }
     }
   }
 
   async function sendMessage() {
-    const content = prompt.trim()
-    if ((!content && !pendingImages.length) || loading || attaching || !requestReady()) return
+    const content = prompt.trim();
+    if ((!content && !pendingImages.length) || loading || attaching || !requestReady()) return;
 
-    const chatId = activeChatId
+    const chatId = activeChatId;
     const nextMessages: Message[] = [...messages, {
       role: 'user',
       content,
       ...(pendingImages.length ? { images: pendingImages } : {}),
-    }]
-    prompt = ''
-    pendingImages = []
-    await tick()
-    if (chatId !== activeChatId) return
-    if (textarea) resizeTextarea(textarea)
-    await requestResponse(nextMessages)
+    }];
+    prompt = '';
+    pendingImages = [];
+    await tick();
+    if (chatId !== activeChatId) return;
+    if (textarea) resizeTextarea(textarea);
+    await requestResponse(nextMessages);
   }
 
   async function copyMessage(content: string, index: number) {
     try {
-      await navigator.clipboard.writeText(content)
-      copiedMessage = index
+      await navigator.clipboard.writeText(content);
+      copiedMessage = index;
       setTimeout(() => {
-        if (copiedMessage === index) copiedMessage = null
-      }, 1500)
+        if (copiedMessage === index) copiedMessage = null;
+      }, 1500);
     } catch {
-      error = 'Could not copy this message.'
+      error = 'Could not copy this message.';
     }
   }
 
   async function regenerateMessage(index: number) {
-    if (loading || editingMessage !== null || messages[index]?.role !== 'assistant' || messages[index - 1]?.role !== 'user' || !requestReady()) return
-    await requestResponse(messages.slice(0, index))
+    if (loading || editingMessage !== null || messages[index]?.role !== 'assistant' || messages[index - 1]?.role !== 'user' || !requestReady()) return;
+    await requestResponse(messages.slice(0, index));
   }
 
   async function editMessage(index: number) {
-    const message = messages[index]
-    if (loading || message?.role !== 'user') return
-    editingMessage = index
-    editPrompt = message.content
-    editImages = [...(message.images ?? [])]
-    error = ''
-    copiedMessage = null
-    await tick()
-    editTextarea.focus()
-    resizeTextarea(editTextarea)
+    const message = messages[index];
+    if (loading || message?.role !== 'user') return;
+    editingMessage = index;
+    editPrompt = message.content;
+    editImages = [...(message.images ?? [])];
+    error = '';
+    copiedMessage = null;
+    await tick();
+    editTextarea.focus();
+    resizeTextarea(editTextarea);
   }
 
   function cancelEdit() {
-    editingMessage = null
-    editPrompt = ''
-    editImages = []
+    editingMessage = null;
+    editPrompt = '';
+    editImages = [];
   }
 
   async function saveEdit(index: number) {
-    const content = editPrompt.trim()
-    const images = [...editImages]
-    const previous = messages[index]?.images ?? []
-    if ((!content && !images.length) || loading || attaching || messages[index]?.role !== 'user' || !requestReady()) return
+    const content = editPrompt.trim();
+    const images = [...editImages];
+    const previous = messages[index]?.images ?? [];
+    if ((!content && !images.length) || loading || attaching || messages[index]?.role !== 'user' || !requestReady()) return;
     if (content === messages[index].content && images.length === previous.length && images.every((src, imageIndex) => src === previous[imageIndex])) {
-      cancelEdit()
-      return
+      cancelEdit();
+      return;
     }
-    cancelEdit()
-    await requestResponse([...messages.slice(0, index), { role: 'user', content, ...(images.length ? { images } : {}) }])
+    cancelEdit();
+    await requestResponse([...messages.slice(0, index), { role: 'user', content, ...(images.length ? { images } : {}) }]);
   }
 
   function persistChat(
@@ -862,9 +862,9 @@
     pending?: TokenUsage,
     deferSave = false,
   ) {
-    const current = chats.find((chat) => chat.id === activeChatId)
-    if (!current) return
-    const first = next.find((message) => message.role === 'user')
+    const current = chats.find((chat) => chat.id === activeChatId);
+    if (!current) return;
+    const first = next.find((message) => message.role === 'user');
     const chat: Chat = {
       ...current,
       title: first ? (first.content.trim() || 'Image conversation').slice(0, 80) : 'New chat',
@@ -874,134 +874,134 @@
       pendingImages: images,
       tokenUsage: usage,
       chatUsage: pending ? addUsage(total, pending) : total,
-    }
-    chats = chats.map((item) => item.id === chat.id ? chat : item)
+    };
+    chats = chats.map((item) => item.id === chat.id ? chat : item);
     // Streaming can update once per token. Persisting every update clones the
     // entire conversation, including base64 image attachments, and can exhaust
     // the browser heap. Keep the in-memory chat current, then save once loading
     // finishes (or when stopResponse explicitly flushes it).
-    if (deferSave) return
+    if (deferSave) return;
     void saveChat(chat).catch(() => {
-      storageError = 'Could not save this conversation locally. Check browser storage; keep this page open to retain your messages.'
-    })
+      storageError = 'Could not save this conversation locally. Check browser storage; keep this page open to retain your messages.';
+    });
   }
 
   function finishResponseTiming() {
-    if (requestStartedAt === undefined) return
-    const elapsedMs = performance.now() - requestStartedAt
+    if (requestStartedAt === undefined) return;
+    const elapsedMs = performance.now() - requestStartedAt;
     messages = messages.map((message, index) => index === messages.length - 1 && message.role === 'assistant'
       ? { ...message, elapsedMs }
-      : message)
-    requestStartedAt = undefined
+      : message);
+    requestStartedAt = undefined;
   }
 
   function stopResponse() {
-    finishResponseTiming()
-    requestVersion += 1
-    controller?.abort()
-    controller = undefined
-    if (pendingUsage) chatUsage = addUsage(chatUsage, pendingUsage)
-    pendingUsage = undefined
-    loading = false
-    if (ready) persistChat(messages, prompt, pendingImages, tokenUsage, chatUsage)
+    finishResponseTiming();
+    requestVersion += 1;
+    controller?.abort();
+    controller = undefined;
+    if (pendingUsage) chatUsage = addUsage(chatUsage, pendingUsage);
+    pendingUsage = undefined;
+    loading = false;
+    if (ready) persistChat(messages, prompt, pendingImages, tokenUsage, chatUsage);
   }
 
   function activateChat(chat: Chat) {
-    stopResponse()
-    persistActiveProfile()
-    activeChatId = chat.id
-    activeProfileId = chat.profileId
-    loadActiveProfile()
-    messages = chat.messages
-    prompt = chat.prompt
-    pendingImages = chat.pendingImages
-    tokenUsage = chat.tokenUsage
-    chatUsage = chat.chatUsage
-    error = ''
-    copiedMessage = null
-    profileMenuOpen = false
-    cancelEdit()
-    saveSettings()
+    stopResponse();
+    persistActiveProfile();
+    activeChatId = chat.id;
+    activeProfileId = chat.profileId;
+    loadActiveProfile();
+    messages = chat.messages;
+    prompt = chat.prompt;
+    pendingImages = chat.pendingImages;
+    tokenUsage = chat.tokenUsage;
+    chatUsage = chat.chatUsage;
+    error = '';
+    copiedMessage = null;
+    profileMenuOpen = false;
+    cancelEdit();
+    saveSettings();
     void tick().then(() => {
-      if (textarea) resizeTextarea(textarea)
-      updateScrollbar()
-    })
+      if (textarea) resizeTextarea(textarea);
+      updateScrollbar();
+    });
   }
 
   function createChat() {
-    const chat: Chat = { id: crypto.randomUUID(), profileId: activeProfileId, title: 'New chat', updatedAt: Date.now(), messages: [], prompt: '', pendingImages: [] }
-    chats = [chat, ...chats]
-    activateChat(chat)
-    return chat
+    const chat: Chat = { id: crypto.randomUUID(), profileId: activeProfileId, title: 'New chat', updatedAt: Date.now(), messages: [], prompt: '', pendingImages: [] };
+    chats = [chat, ...chats];
+    activateChat(chat);
+    return chat;
   }
 
   function navigate(path: string, replace = false) {
-    const hash = `#${path}`
-    if (replace) history.replaceState(null, '', hash)
-    else if (location.hash !== hash) history.pushState(null, '', hash)
-    applyRoute()
+    const hash = `#${path}`;
+    if (replace) history.replaceState(null, '', hash);
+    else if (location.hash !== hash) history.pushState(null, '', hash);
+    applyRoute();
   }
 
   function applyRoute() {
-    if (!ready) return
-    const route = location.hash.slice(1)
+    if (!ready) return;
+    const route = location.hash.slice(1);
     if (route === '/settings') {
-      profileMenuOpen = false
-      page = 'settings'
-      return
+      profileMenuOpen = false;
+      page = 'settings';
+      return;
     }
-    const id = route.startsWith('/chat/') ? route.slice(6) : activeChatId
-    let chat = chats.find((item) => item.id === id)
-    if (!chat) chat = chats.find((item) => item.profileId === activeProfileId) ?? createChat()
-    if (chat.id !== activeChatId || page === 'settings' || messages !== chat.messages) activateChat(chat)
-    page = 'chat'
-    if (route !== `/chat/${chat.id}`) history.replaceState(null, '', `#/chat/${chat.id}`)
+    const id = route.startsWith('/chat/') ? route.slice(6) : activeChatId;
+    let chat = chats.find((item) => item.id === id);
+    if (!chat) chat = chats.find((item) => item.profileId === activeProfileId) ?? createChat();
+    if (chat.id !== activeChatId || page === 'settings' || messages !== chat.messages) activateChat(chat);
+    page = 'chat';
+    if (route !== `/chat/${chat.id}`) history.replaceState(null, '', `#/chat/${chat.id}`);
   }
 
   function selectProfileChat() {
-    const chat = chats.filter((item) => item.profileId === activeProfileId).sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? createChat()
-    activateChat(chat)
-    if (page === 'chat') navigate(`/chat/${chat.id}`)
+    const chat = chats.filter((item) => item.profileId === activeProfileId).sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? createChat();
+    activateChat(chat);
+    if (page === 'chat') navigate(`/chat/${chat.id}`);
   }
 
   function newChat() {
-    if (attaching) return
-    const chat = createChat()
-    navigate(`/chat/${chat.id}`)
+    if (attaching) return;
+    const chat = createChat();
+    navigate(`/chat/${chat.id}`);
   }
 
   function chatTitle(chat: Chat, translate: Translator) {
-    const first = chat.messages.find((message) => message.role === 'user')
-    return first?.content.trim() ? chat.title : translate(first ? 'Image conversation' : 'New chat')
+    const first = chat.messages.find((message) => message.role === 'user');
+    return first?.content.trim() ? chat.title : translate(first ? 'Image conversation' : 'New chat');
   }
 
   function isEmptyChat(chat: Chat) {
-    return !chat.messages.length && !chat.prompt.trim() && !chat.pendingImages.length
+    return !chat.messages.length && !chat.prompt.trim() && !chat.pendingImages.length;
   }
 
   async function deleteChat(chat: Chat) {
-    const empty = isEmptyChat(chat)
-    if (empty && chats.filter((item) => item.profileId === chat.profileId).length < 2) return
-    if (!empty && !confirm($t('Delete conversation "{name}"? This cannot be undone.', { name: chatTitle(chat, $t) }))) return
-    if (chat.id === activeChatId) stopResponse()
+    const empty = isEmptyChat(chat);
+    if (empty && chats.filter((item) => item.profileId === chat.profileId).length < 2) return;
+    if (!empty && !confirm($t('Delete conversation "{name}"? This cannot be undone.', { name: chatTitle(chat, $t) }))) return;
+    if (chat.id === activeChatId) stopResponse();
     try {
-      await removeChats([chat.id])
+      await removeChats([chat.id]);
     } catch {
-      storageError = 'Could not delete this conversation. Please try again.'
-      return
+      storageError = 'Could not delete this conversation. Please try again.';
+      return;
     }
-    chats = chats.filter((item) => item.id !== chat.id)
+    chats = chats.filter((item) => item.id !== chat.id);
     if (chat.id === activeChatId) {
-      activeChatId = ''
-      selectProfileChat()
-      if (page === 'chat') navigate(`/chat/${activeChatId}`, true)
+      activeChatId = '';
+      selectProfileChat();
+      if (page === 'chat') navigate(`/chat/${activeChatId}`, true);
     }
   }
 
   function toggleSidebar() {
-    sidebarVisible = !sidebarVisible
-    saveSettings()
-    void tick().then(updateScrollbar)
+    sidebarVisible = !sidebarVisible;
+    saveSettings();
+    void tick().then(updateScrollbar);
   }
 
 </script>
@@ -1075,7 +1075,7 @@
           <div
             class="welcome-profile"
             onfocusout={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) profileMenuOpen = false
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) profileMenuOpen = false;
             }}
           >
             <button
@@ -1101,7 +1101,7 @@
                 tabindex="-1"
                 aria-label={$t("Profiles")}
                 onkeydown={(event) => {
-                  if (event.key === 'Escape') profileMenuOpen = false
+                  if (event.key === 'Escape') profileMenuOpen = false;
                 }}
               >
                 {#each profiles as profile}
@@ -1111,8 +1111,8 @@
                     role="option"
                     aria-selected={profile.id === activeProfileId}
                     onclick={() => {
-                      profileMenuOpen = false
-                      switchProfile(profile.id)
+                      profileMenuOpen = false;
+                      switchProfile(profile.id);
                     }}
                   >
                     {@render profileFace(profile.icon)}
@@ -1233,10 +1233,10 @@
         class="composer"
         class:dragging
         bind:this={form}
-        onsubmit={(event) => { event.preventDefault(); sendMessage() }}
-        ondragover={(event) => { event.preventDefault(); dragging = true }}
-        ondragleave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) dragging = false }}
-        ondrop={(event) => { event.preventDefault(); dragging = false; addImages([...(event.dataTransfer?.files ?? [])]) }}
+        onsubmit={(event) => { event.preventDefault(); sendMessage(); }}
+        ondragover={(event) => { event.preventDefault(); dragging = true; }}
+        ondragleave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) dragging = false; }}
+        ondrop={(event) => { event.preventDefault(); dragging = false; addImages([...(event.dataTransfer?.files ?? [])]); }}
       >
         <input
           bind:this={fileInput}
@@ -1245,8 +1245,8 @@
           multiple
           hidden
           onchange={(event) => {
-            addImages([...(event.currentTarget.files ?? [])], imageTarget)
-            event.currentTarget.value = ''
+            addImages([...(event.currentTarget.files ?? [])], imageTarget);
+            event.currentTarget.value = '';
           }}
         />
         {#if pendingImages.length}
@@ -1643,8 +1643,8 @@
                 accept="image/*"
                 hidden
                 onchange={(event) => {
-                  setProfileIcon([...(event.currentTarget.files ?? [])])
-                  event.currentTarget.value = ''
+                  setProfileIcon([...(event.currentTarget.files ?? [])]);
+                  event.currentTarget.value = '';
                 }}
               />
               <div class="profile-icon-row">
@@ -1663,7 +1663,7 @@
                     type="button"
                     aria-label={$t("Remove profile icon")}
                     title={$t("Remove icon")}
-                    onclick={() => { profileIcon = ''; saveSettings() }}
+                    onclick={() => { profileIcon = ''; saveSettings(); }}
                   >
                     <Icon name="close" />
                   </button>
@@ -1684,8 +1684,8 @@
                 accept="image/*"
                 hidden
                 onchange={(event) => {
-                  setProfileBackground([...(event.currentTarget.files ?? [])])
-                  event.currentTarget.value = ''
+                  setProfileBackground([...(event.currentTarget.files ?? [])]);
+                  event.currentTarget.value = '';
                 }}
               />
               <div class="profile-icon-row profile-background-row">
@@ -1706,12 +1706,12 @@
                     title={$t("Remove background")}
                     onclick={async () => {
                       try {
-                        await removeBackgrounds([activeProfileId])
-                        setBackgroundUrl('')
-                        backgroundError = ''
-                        saveSettings()
+                        await removeBackgrounds([activeProfileId]);
+                        setBackgroundUrl('');
+                        backgroundError = '';
+                        saveSettings();
                       } catch {
-                        backgroundError = 'Could not remove this background.'
+                        backgroundError = 'Could not remove this background.';
                       }
                     }}
                   >

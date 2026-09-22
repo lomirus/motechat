@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { untrack } from 'svelte'
-  import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, type CompletionContext } from '@codemirror/autocomplete'
-  import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
-  import { javascript, javascriptLanguage } from '@codemirror/lang-javascript'
-  import { HighlightStyle, bracketMatching, indentOnInput, indentUnit, syntaxHighlighting } from '@codemirror/language'
-  import { EditorState } from '@codemirror/state'
-  import { Decoration, EditorView, ViewPlugin, drawSelection, highlightSpecialChars, keymap, placeholder as cmPlaceholder, type DecorationSet, type ViewUpdate } from '@codemirror/view'
-  import { tags } from '@lezer/highlight'
-  import { scriptMarks, type ScriptMarkKind } from './code'
-  import { scriptConnectionFields } from './connections'
+  import { untrack } from 'svelte';
+  import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, type CompletionContext } from '@codemirror/autocomplete';
+  import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+  import { javascript, javascriptLanguage } from '@codemirror/lang-javascript';
+  import { HighlightStyle, bracketMatching, indentOnInput, indentUnit, syntaxHighlighting } from '@codemirror/language';
+  import { EditorState } from '@codemirror/state';
+  import { Decoration, EditorView, ViewPlugin, drawSelection, highlightSpecialChars, keymap, placeholder as cmPlaceholder, type DecorationSet, type ViewUpdate } from '@codemirror/view';
+  import { tags } from '@lezer/highlight';
+  import { scriptMarks, type ScriptMarkKind } from './code';
+  import { scriptConnectionFields } from './connections';
 
   let {
     id,
@@ -20,7 +20,7 @@
     value: string
     placeholder?: string
     selectedKeys?: readonly string[]
-  } = $props()
+  } = $props();
 
   const highlightStyle = HighlightStyle.define([
     { tag: tags.keyword, color: 'var(--code-keyword)' },
@@ -59,7 +59,7 @@
     { tag: tags.brace, color: 'var(--code-symbol)' },
     { tag: tags.separator, color: 'var(--code-symbol)' },
     { tag: tags.derefOperator, color: 'var(--code-symbol)' },
-  ])
+  ]);
 
   const semanticDecorations: Record<ScriptMarkKind, Decoration> = {
     local: Decoration.mark({ class: 'cm-local-name' }),
@@ -69,74 +69,74 @@
     'bracket-1': Decoration.mark({ class: 'cm-bracket-1' }),
     'bracket-2': Decoration.mark({ class: 'cm-bracket-2' }),
     'bracket-3': Decoration.mark({ class: 'cm-bracket-3' }),
-  }
+  };
   const semanticNames = ViewPlugin.fromClass(class {
-    decorations: DecorationSet
-    constructor(view: EditorView) { this.decorations = markNames(view) }
+    decorations: DecorationSet;
+    constructor(view: EditorView) { this.decorations = markNames(view); }
     update(u: ViewUpdate) {
-      if (u.docChanged || u.viewportChanged) this.decorations = markNames(u.view)
+      if (u.docChanged || u.viewportChanged) this.decorations = markNames(u.view);
     }
-  }, { decorations: (v) => v.decorations })
+  }, { decorations: (v) => v.decorations });
 
   // ponytail: name matching is scope-insensitive; upgrade to JS semantic tokens if shadowing matters
   function markNames(view: EditorView) {
-    const out = scriptMarks(view.state).map((mark) => semanticDecorations[mark.kind].range(mark.from, mark.to))
-    return Decoration.set(out)
+    const out = scriptMarks(view.state).map((mark) => semanticDecorations[mark.kind].range(mark.from, mark.to));
+    return Decoration.set(out);
   }
 
   function completions(context: CompletionContext) {
-    const before = context.state.sliceDoc(Math.max(0, context.pos - 80), context.pos)
-    const member = /([A-Za-z_$][\w$]*)\s*\.\s*([\w$]*)$/.exec(before)
+    const before = context.state.sliceDoc(Math.max(0, context.pos - 80), context.pos);
+    const member = /([A-Za-z_$][\w$]*)\s*\.\s*([\w$]*)$/.exec(before);
     if (member) {
       const pool = member[1] === 'connection'
         ? scriptConnectionFields
-        : member[1] === 'selected' ? selectedKeys.map((label) => [label, 'string'] as const) : null
-      if (!pool) return null
-      const prefix = member[2]
+        : member[1] === 'selected' ? selectedKeys.map((label) => [label, 'string'] as const) : null;
+      if (!pool) return null;
+      const prefix = member[2];
       const options = pool
         .filter(([label]) => label.startsWith(prefix))
-        .map(([label, detail]) => ({ label, detail }))
-      return options.length ? { from: context.pos - prefix.length, options } : null
+        .map(([label, detail]) => ({ label, detail }));
+      return options.length ? { from: context.pos - prefix.length, options } : null;
     }
-    const ident = context.matchBefore(/[A-Za-z_$][\w$]*/)
-    if (!ident && !context.explicit) return null
-    if (ident && ident.from === ident.to && !context.explicit) return null
+    const ident = context.matchBefore(/[A-Za-z_$][\w$]*/);
+    if (!ident && !context.explicit) return null;
+    if (ident && ident.from === ident.to && !context.explicit) return null;
     return {
       from: ident?.from ?? context.pos,
       options: [
         { label: 'connection', detail: 'Connection' },
         { label: 'selected', detail: '{ [id: string]: string }' },
       ],
-    }
+    };
   }
 
-  let host = $state<HTMLDivElement | undefined>()
-  let view: EditorView | undefined
-  let pending: string | null = null
-  let timer: ReturnType<typeof setTimeout> | undefined
+  let host = $state<HTMLDivElement | undefined>();
+  let view: EditorView | undefined;
+  let pending: string | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
 
   function flush() {
     if (timer) {
-      clearTimeout(timer)
-      timer = undefined
+      clearTimeout(timer);
+      timer = undefined;
     }
-    if (pending === null || !host) return
-    const next = pending
-    pending = null
-    if (next === value) return
-    value = next
-    host.dispatchEvent(new Event('input', { bubbles: true }))
+    if (pending === null || !host) return;
+    const next = pending;
+    pending = null;
+    if (next === value) return;
+    value = next;
+    host.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   function schedule(next: string) {
-    pending = next
-    if (timer) clearTimeout(timer)
-    timer = setTimeout(flush, 200)
+    pending = next;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(flush, 200);
   }
 
   $effect(() => {
-    const parent = host
-    if (!parent) return
+    const parent = host;
+    if (!parent) return;
     const v = untrack(() => new EditorView({
       parent,
       state: EditorState.create({
@@ -165,7 +165,7 @@
             ...historyKeymap,
           ]),
           EditorView.updateListener.of((update) => {
-            if (update.docChanged) schedule(update.state.doc.toString())
+            if (update.docChanged) schedule(update.state.doc.toString());
           }),
           EditorView.theme({
             '&': { backgroundColor: 'transparent' },
@@ -194,35 +194,35 @@
           }),
         ],
       }),
-    }))
-    view = v
+    }));
+    view = v;
     return () => {
-      flush()
-      v.destroy()
-      if (view === v) view = undefined
-    }
-  })
+      flush();
+      v.destroy();
+      if (view === v) view = undefined;
+    };
+  });
 
   $effect(() => {
-    const next = value
-    if (!view) return
+    const next = value;
+    if (!view) return;
     if (pending !== null) {
-      if (next === view.state.doc.toString()) return
-      pending = null
+      if (next === view.state.doc.toString()) return;
+      pending = null;
       if (timer) {
-        clearTimeout(timer)
-        timer = undefined
+        clearTimeout(timer);
+        timer = undefined;
       }
     }
-    if (next === view.state.doc.toString()) return
-    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } })
-  })
+    if (next === view.state.doc.toString()) return;
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } });
+  });
 </script>
 
 <div
   class="code-editor"
   bind:this={host}
   onfocusout={(event) => {
-    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) flush()
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) flush();
   }}
 ></div>

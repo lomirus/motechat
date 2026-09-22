@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { usageRing } from './responses'
+  import type { usageRing } from './responses';
 
   let { segments, circumference }: {
     segments: ReturnType<typeof usageRing>
     circumference: number
-  } = $props()
+  } = $props();
 </script>
 
 <svg viewBox="0 0 24 24" aria-hidden="true">

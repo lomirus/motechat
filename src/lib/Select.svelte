@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Icon from './Icon.svelte'
-  import { t } from './i18n'
+  import Icon from './Icon.svelte';
+  import { t } from './i18n';
 
   type Option = string | readonly [string, string] | readonly [string, string, string]
 
@@ -24,49 +24,49 @@
     listName: string
     optionLanguages?: boolean
     onchange?: (value: string) => void
-  } = $props()
+  } = $props();
 
-  let open = $state(false)
+  let open = $state(false);
 
   function entry(option: Option): readonly [string, string, string] {
-    if (typeof option === 'string') return [option, option, '']
-    return [option[0], option[1], option[2] ?? '']
+    if (typeof option === 'string') return [option, option, ''];
+    return [option[0], option[1], option[2] ?? ''];
   }
 
   function iconFor(current: string) {
     for (const option of options) {
-      const [optionValue, , optionIcon] = entry(option)
-      if (optionValue === current) return optionIcon
+      const [optionValue, , optionIcon] = entry(option);
+      if (optionValue === current) return optionIcon;
     }
-    return ''
+    return '';
   }
 
   function labelFor(current: string) {
     for (const option of options) {
-      const [optionValue, optionLabel] = entry(option)
-      if (optionValue === current) return optionLabel
+      const [optionValue, optionLabel] = entry(option);
+      if (optionValue === current) return optionLabel;
     }
-    return current
+    return current;
   }
 
-  const faces = $derived(options.some((option) => Array.isArray(option) && option.length > 2))
+  const faces = $derived(options.some((option) => Array.isArray(option) && option.length > 2));
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') open = false
+    if (event.key === 'Escape') open = false;
     if (event.key === 'ArrowDown' && options.length) {
-      event.preventDefault()
-      open = true
+      event.preventDefault();
+      open = true;
     }
     if (!editable && (event.key === 'Enter' || event.key === ' ') && options.length) {
-      event.preventDefault()
-      open = true
+      event.preventDefault();
+      open = true;
     }
   }
 
   function choose(next: string) {
-    value = next
-    open = false
-    onchange?.(next)
+    value = next;
+    open = false;
+    onchange?.(next);
   }
 </script>
 
@@ -74,7 +74,7 @@
   class="model-select"
   class:has-face={faces}
   onfocusout={(event) => {
-    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) open = false
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) open = false;
   }}
 >
   {#if faces}
@@ -121,7 +121,7 @@
       tabindex="-1"
       aria-label={listLabel}
       onkeydown={(event) => {
-        if (event.key === 'Escape') open = false
+        if (event.key === 'Escape') open = false;
       }}
     >
       {#each options as option}

@@ -32,9 +32,9 @@
 </script>
 
 <script lang="ts">
-  import type { SVGAttributes } from 'svelte/elements'
+  import type { SVGAttributes } from 'svelte/elements';
 
-  let { name, ...attributes }: { name: IconName } & SVGAttributes<SVGSVGElement> = $props()
+  let { name, ...attributes }: { name: IconName } & SVGAttributes<SVGSVGElement> = $props();
 </script>
 
 <svg viewBox="0 0 24 24" aria-hidden="true" {...attributes}>

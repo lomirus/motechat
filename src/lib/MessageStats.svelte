@@ -1,13 +1,13 @@
 <script lang="ts">
-  import Icon, { type IconName } from './Icon.svelte'
-  import type { Message } from './chats'
-  import { language, t } from './i18n'
-  import { formatMoney } from './responses'
+  import Icon, { type IconName } from './Icon.svelte';
+  import type { Message } from './chats';
+  import { language, t } from './i18n';
+  import { formatMoney } from './responses';
 
-  let { message }: { message: Message } = $props()
+  let { message }: { message: Message } = $props();
 
   function duration(ms: number) {
-    return ms >= 1000 ? `${(ms / 1000).toLocaleString($language, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}s` : `${Math.round(ms)}ms`
+    return ms >= 1000 ? `${(ms / 1000).toLocaleString($language, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}s` : `${Math.round(ms)}ms`;
   }
 
   let stats = $derived(([
@@ -17,7 +17,7 @@
     { icon: 'upload', label: $t('Input tokens'), value: message.usage?.input.toLocaleString($language) },
     { icon: 'download', label: $t('Output tokens'), value: message.usage?.output.toLocaleString($language) },
     { icon: 'coin', label: $t('Estimated cost'), value: message.cost ? formatMoney(message.cost.amount, message.cost.currency) : undefined },
-  ] satisfies { icon: IconName; label: string; value: string | undefined }[]).filter((stat) => stat.value !== undefined))
+  ] satisfies { icon: IconName; label: string; value: string | undefined }[]).filter((stat) => stat.value !== undefined));
 </script>
 
 {#if stats.length}
