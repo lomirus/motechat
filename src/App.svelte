@@ -122,6 +122,25 @@
   let prompt = '';
   let pendingImages: string[] = [];
   let editImages: string[] = [];
+  let previewImage = '';
+  let previewNaturalWidth = 0;
+  let previewNaturalHeight = 0;
+  let previewFitScale = 1;
+  let previewScale = 1;
+  let previewOffsetX = 0;
+  let previewOffsetY = 0;
+  let previewTargetScale = 1;
+  let previewTargetOffsetX = 0;
+  let previewTargetOffsetY = 0;
+  let previewAnimationFrame: number | undefined;
+  let previewDragging = false;
+  let previewClosing = false;
+  let previewPointerId: number | null = null;
+  let previewPointerX = 0;
+  let previewPointerY = 0;
+  let previewPointerOffsetX = 0;
+  let previewPointerOffsetY = 0;
+  let previewCloseTimer: number | undefined;
   let imageTarget: 'pending' | 'edit' = 'pending';
   let attaching = false;
   let dragging = false;
@@ -134,6 +153,7 @@
   let editPrompt = '';
   let form: HTMLFormElement;
   let fileInput: HTMLInputElement;
+  let imagePreview: HTMLDialogElement;
   let iconInput: HTMLInputElement;
   let backgroundInput: HTMLInputElement;
   let textarea: HTMLTextAreaElement;
@@ -191,7 +211,7 @@
     const resizeObserver = new ResizeObserver(updateScrollbar);
     resizeObserver.observe(document.body);
     window.addEventListener('scroll', updateScrollbar, { passive: true });
-    window.addEventListener('resize', updateScrollbar);
+    window.addEventListener('resize', handleWindowResize);
     updateScrollbar();
 
     return () => {
@@ -200,12 +220,168 @@
       window.removeEventListener('hashchange', applyRoute);
       resizeObserver.disconnect();
       window.removeEventListener('scroll', updateScrollbar);
-      window.removeEventListener('resize', updateScrollbar);
+      window.removeEventListener('resize', handleWindowResize);
+      if (previewCloseTimer !== undefined) window.clearTimeout(previewCloseTimer);
+      if (previewAnimationFrame !== undefined) window.cancelAnimationFrame(previewAnimationFrame);
     };
   });
 
   function readPrice(value: unknown): number | null {
     return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+  }
+
+  function openImagePreview(src: string) {
+    if (previewCloseTimer !== undefined) window.clearTimeout(previewCloseTimer);
+    stopPreviewAnimation();
+    previewImage = src;
+    previewNaturalWidth = 0;
+    previewNaturalHeight = 0;
+    previewFitScale = 1;
+    previewScale = 1;
+    previewOffsetX = 0;
+    previewOffsetY = 0;
+    previewTargetScale = 1;
+    previewTargetOffsetX = 0;
+    previewTargetOffsetY = 0;
+    previewDragging = false;
+    previewClosing = false;
+    imagePreview.showModal();
+  }
+
+  function closeImagePreview() {
+    if (!imagePreview.open || previewClosing) return;
+    stopPreviewAnimation();
+    previewClosing = true;
+    previewDragging = false;
+    previewCloseTimer = window.setTimeout(() => imagePreview.close(), 160);
+  }
+
+  function resetImagePreview() {
+    if (previewCloseTimer !== undefined) window.clearTimeout(previewCloseTimer);
+    previewCloseTimer = undefined;
+    previewImage = '';
+    previewNaturalWidth = 0;
+    previewNaturalHeight = 0;
+    previewPointerId = null;
+    stopPreviewAnimation();
+    previewDragging = false;
+    previewClosing = false;
+  }
+
+  function fitPreviewImage() {
+    if (!previewNaturalWidth || !previewNaturalHeight) return;
+    const styles = getComputedStyle(imagePreview);
+    const availableWidth = imagePreview.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+    const availableHeight = imagePreview.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
+    previewFitScale = Math.min(1, availableWidth / previewNaturalWidth, availableHeight / previewNaturalHeight);
+    previewScale = previewFitScale;
+    previewOffsetX = 0;
+    previewOffsetY = 0;
+    previewTargetScale = previewFitScale;
+    previewTargetOffsetX = 0;
+    previewTargetOffsetY = 0;
+  }
+
+  function handleWindowResize() {
+    updateScrollbar();
+    if (imagePreview?.open) fitPreviewImage();
+  }
+
+  function initializePreviewImage(event: Event) {
+    const image = event.currentTarget as HTMLImageElement;
+    previewNaturalWidth = image.naturalWidth;
+    previewNaturalHeight = image.naturalHeight;
+    fitPreviewImage();
+  }
+
+  function stopPreviewAnimation() {
+    if (previewAnimationFrame !== undefined) window.cancelAnimationFrame(previewAnimationFrame);
+    previewAnimationFrame = undefined;
+  }
+
+  function animatePreviewTransform() {
+    const blend = .24;
+    previewScale += (previewTargetScale - previewScale) * blend;
+    previewOffsetX += (previewTargetOffsetX - previewOffsetX) * blend;
+    previewOffsetY += (previewTargetOffsetY - previewOffsetY) * blend;
+
+    const settled = Math.abs(previewTargetScale - previewScale) < .0001
+      && Math.abs(previewTargetOffsetX - previewOffsetX) < .05
+      && Math.abs(previewTargetOffsetY - previewOffsetY) < .05;
+    if (settled) {
+      previewScale = previewTargetScale;
+      previewOffsetX = previewTargetOffsetX;
+      previewOffsetY = previewTargetOffsetY;
+      previewAnimationFrame = undefined;
+      return;
+    }
+    previewAnimationFrame = window.requestAnimationFrame(animatePreviewTransform);
+  }
+
+  function startPreviewAnimation() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      previewScale = previewTargetScale;
+      previewOffsetX = previewTargetOffsetX;
+      previewOffsetY = previewTargetOffsetY;
+      return;
+    }
+    if (previewAnimationFrame === undefined) {
+      previewAnimationFrame = window.requestAnimationFrame(animatePreviewTransform);
+    }
+  }
+
+  function handlePreviewWheel(event: WheelEvent) {
+    if (!previewNaturalWidth || previewClosing) return;
+    event.preventDefault();
+    const delta = event.deltaY * (event.deltaMode === WheelEvent.DOM_DELTA_LINE
+      ? 16
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.innerHeight : 1);
+    const minimumScale = Math.min(.1, previewFitScale);
+    const nextScale = Math.min(8, Math.max(minimumScale, previewTargetScale * Math.exp(-delta * .0015)));
+    if (nextScale === previewTargetScale) return;
+
+    const bounds = imagePreview.getBoundingClientRect();
+    const pointerX = event.clientX - (bounds.left + bounds.width / 2);
+    const pointerY = event.clientY - (bounds.top + bounds.height / 2);
+    const ratio = nextScale / previewTargetScale;
+    previewTargetOffsetX = pointerX - (pointerX - previewTargetOffsetX) * ratio;
+    previewTargetOffsetY = pointerY - (pointerY - previewTargetOffsetY) * ratio;
+    previewTargetScale = nextScale;
+    startPreviewAnimation();
+  }
+
+  function startPreviewDrag(event: PointerEvent) {
+    if (event.button !== 0 || previewClosing) return;
+    event.preventDefault();
+    stopPreviewAnimation();
+    previewTargetScale = previewScale;
+    previewTargetOffsetX = previewOffsetX;
+    previewTargetOffsetY = previewOffsetY;
+    previewDragging = true;
+    previewPointerId = event.pointerId;
+    previewPointerX = event.clientX;
+    previewPointerY = event.clientY;
+    previewPointerOffsetX = previewOffsetX;
+    previewPointerOffsetY = previewOffsetY;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+
+  function movePreviewImage(event: PointerEvent) {
+    if (!previewDragging || event.pointerId !== previewPointerId) return;
+    previewOffsetX = previewPointerOffsetX + event.clientX - previewPointerX;
+    previewOffsetY = previewPointerOffsetY + event.clientY - previewPointerY;
+    previewTargetOffsetX = previewOffsetX;
+    previewTargetOffsetY = previewOffsetY;
+  }
+
+  function stopPreviewDrag(event: PointerEvent) {
+    if (event.pointerId !== previewPointerId) return;
+    previewDragging = false;
+    previewPointerId = null;
+    const element = event.currentTarget as HTMLElement;
+    if (element.hasPointerCapture(event.pointerId)) {
+      element.releasePointerCapture(event.pointerId);
+    }
   }
 
   function chooseLanguage(value: string) {
@@ -1136,8 +1312,10 @@
                     <div class="composer-attachments">
                       {#each editImages as src, imageIndex}
                         <div class="composer-attachment">
-                          <img src={src} alt={$t("Attachment")} />
-                          <button type="button" aria-label={$t("Remove image")} onclick={() => removeImage(imageIndex, 'edit')}>
+                          <button class="composer-image-preview" type="button" aria-label={$t("Preview image")} onclick={() => openImagePreview(src)}>
+                            <img src={src} alt={$t("Attachment")} />
+                          </button>
+                          <button class="composer-image-remove" type="button" aria-label={$t("Remove image")} onclick={() => removeImage(imageIndex, 'edit')}>
                             <Icon name="close" />
                           </button>
                         </div>
@@ -1185,7 +1363,14 @@
                     {#if message.images?.length}
                       <div class="message-images">
                         {#each message.images as src}
-                          <img src={src} alt={$t("Attachment")} />
+                          <button
+                            class="message-image-button"
+                            type="button"
+                            aria-label={$t("Preview image")}
+                            onclick={() => openImagePreview(src)}
+                          >
+                            <img src={src} alt={$t("Attachment")} />
+                          </button>
                         {/each}
                       </div>
                     {/if}
@@ -1253,8 +1438,10 @@
           <div class="composer-attachments">
             {#each pendingImages as src, index}
               <div class="composer-attachment">
-                <img src={src} alt={$t("Attachment")} />
-                <button type="button" aria-label={$t("Remove image")} onclick={() => removeImage(index)}>
+                <button class="composer-image-preview" type="button" aria-label={$t("Preview image")} onclick={() => openImagePreview(src)}>
+                  <img src={src} alt={$t("Attachment")} />
+                </button>
+                <button class="composer-image-remove" type="button" aria-label={$t("Remove image")} onclick={() => removeImage(index)}>
                   <Icon name="close" />
                 </button>
               </div>
@@ -1741,6 +1928,57 @@
 {:else}
   <p class="loading-conversations">{$t("Loading conversations…")}</p>
 {/if}
+
+<dialog
+  class="image-preview"
+  class:closing={previewClosing}
+  bind:this={imagePreview}
+  aria-label={$t("Image preview")}
+  onclose={resetImagePreview}
+  oncancel={(event) => {
+    event.preventDefault();
+    closeImagePreview();
+  }}
+  onwheel={handlePreviewWheel}
+  onclick={(event) => {
+    if (event.target === event.currentTarget) closeImagePreview();
+  }}
+>
+  <button
+    class="image-preview-close"
+    type="button"
+    aria-label={$t("Close preview")}
+    title={$t("Close preview")}
+    onclick={closeImagePreview}
+  >
+    <Icon name="close" />
+  </button>
+  {#if previewImage}
+    <button
+      class="image-preview-transform"
+      class:ready={previewNaturalWidth > 0}
+      class:dragging={previewDragging}
+      type="button"
+      aria-label={$t("Image preview")}
+      style:left={`calc(50% + ${previewOffsetX}px)`}
+      style:top={`calc(50% + ${previewOffsetY}px)`}
+      style:width={`${previewNaturalWidth}px`}
+      style:height={`${previewNaturalHeight}px`}
+      style:transform={`translate(-50%, -50%) scale(${previewScale})`}
+      onpointerdown={startPreviewDrag}
+      onpointermove={movePreviewImage}
+      onpointerup={stopPreviewDrag}
+      onpointercancel={stopPreviewDrag}
+    >
+      <img
+        src={previewImage}
+        alt=""
+        draggable="false"
+        onload={initializePreviewImage}
+      />
+    </button>
+  {/if}
+</dialog>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div

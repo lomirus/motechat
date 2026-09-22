@@ -511,12 +511,156 @@ h1, h2, p {
   margin-top: 8px;
 }
 
-.message-images img {
+.message-image-button {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.message-image-button img {
   display: block;
   max-width: min(280px, 100%);
   max-height: 240px;
   object-fit: cover;
   border-radius: 14px;
+}
+
+.image-preview {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: clamp(20px, 5vw, 64px);
+  overflow: hidden;
+  border: 0;
+  background: rgb(8 9 8 / 52%);
+  color: #fff;
+  cursor: zoom-out;
+}
+
+.image-preview[open] {
+  display: grid;
+  animation: image-preview-overlay-in 180ms ease-out both;
+  place-items: center;
+}
+
+.image-preview.closing {
+  animation: image-preview-overlay-out 160ms ease-in both;
+}
+
+.image-preview::backdrop {
+  background: transparent;
+}
+
+.image-preview-transform {
+  position: absolute;
+  z-index: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  cursor: grab;
+  touch-action: none;
+  transform-origin: center;
+  user-select: none;
+  will-change: left, top, transform;
+}
+
+.image-preview-transform.ready {
+  opacity: 1;
+}
+
+.image-preview-transform.dragging {
+  cursor: grabbing;
+}
+
+.image-preview-transform img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: image-preview-image-in 220ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.image-preview-close {
+  position: absolute;
+  z-index: 2;
+  top: 20px;
+  right: 20px;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 50%;
+  background: #303230;
+  color: #fff;
+  animation: image-preview-control-in 180ms ease-out both;
+  cursor: pointer;
+  place-items: center;
+}
+
+.image-preview-close:hover {
+  background: #3d403d;
+}
+
+.image-preview-close svg {
+  width: 21px;
+  height: 21px;
+}
+
+.image-preview.closing .image-preview-transform img {
+  animation: image-preview-image-out 160ms ease-in both;
+}
+
+.image-preview.closing .image-preview-close {
+  animation: image-preview-control-out 140ms ease-in both;
+}
+
+@keyframes image-preview-overlay-in {
+  from {
+    background-color: rgb(8 9 8 / 0%);
+  }
+}
+
+@keyframes image-preview-image-in {
+  from {
+    opacity: 0;
+    transform: scale(.94);
+  }
+}
+
+@keyframes image-preview-overlay-out {
+  to {
+    background-color: rgb(8 9 8 / 0%);
+  }
+}
+
+@keyframes image-preview-image-out {
+  to {
+    opacity: 0;
+    transform: scale(.96);
+  }
+}
+
+@keyframes image-preview-control-in {
+  from {
+    opacity: 0;
+    transform: scale(.9);
+  }
+}
+
+@keyframes image-preview-control-out {
+  to {
+    opacity: 0;
+    transform: scale(.9);
+  }
 }
 
 .user .message-block {
@@ -843,6 +987,18 @@ h1, h2, p {
   height: 56px;
 }
 
+.composer-image-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: zoom-in;
+}
+
 .composer-attachment img {
   display: block;
   width: 100%;
@@ -851,8 +1007,9 @@ h1, h2, p {
   border-radius: 10px;
 }
 
-.composer-attachment button {
+.composer-image-remove {
   position: absolute;
+  z-index: 1;
   top: -6px;
   right: -6px;
   width: 18px;
