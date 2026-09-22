@@ -2,6 +2,8 @@
   "Token speed": "Token 速度",
   "Time to first token": "首字时延",
   "Elapsed time": "耗时",
+  "{count} ms": "{count}毫秒",
+  "{count} s": "{count}秒",
   "Input tokens": "上行 token 量",
   "Output tokens": "下行 token 量",
   "Estimated cost": "预估花费",

@@ -2,6 +2,8 @@
   "Token speed": "Velocidade dos tokens",
   "Time to first token": "Tempo até o primeiro token",
   "Elapsed time": "Tempo decorrido",
+  "{count} ms": "{count} ms",
+  "{count} s": "{count} s",
   "Input tokens": "Tokens de entrada",
   "Output tokens": "Tokens de saída",
   "Estimated cost": "Custo estimado",

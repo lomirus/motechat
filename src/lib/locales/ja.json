@@ -2,6 +2,8 @@
   "Token speed": "トークン速度",
   "Time to first token": "最初のトークンまでの時間",
   "Elapsed time": "所要時間",
+  "{count} ms": "{count}ミリ秒",
+  "{count} s": "{count}秒",
   "Input tokens": "入力トークン数",
   "Output tokens": "出力トークン数",
   "Estimated cost": "推定費用",

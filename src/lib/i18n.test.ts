@@ -23,6 +23,10 @@ for (const invalid of [undefined, null, '', 'unknown', 'toString', '__proto__', 
 
 assert.equal(translate('zh-CN', 'Settings'), '设置');
 assert.equal(translate('zh-TW', 'Settings'), '設定');
+assert.equal(translate('zh-CN', '{count} ms', { count: 606 }), '606毫秒');
+assert.equal(translate('zh-CN', '{count} s', { count: 2.2 }), '2.2秒');
+assert.equal(translate('ja', '{count} s', { count: 2.2 }), '2.2秒');
+assert.equal(translate('ko', '{count} s', { count: 2.2 }), '2.2초');
 assert.equal(translate('ja', 'Unknown service error'), 'Unknown service error');
 assert.equal(translate('ja', 'toString'), 'toString');
 assert.equal(translate('en', 'Profile: {name}', { name: '$& {name} <script>' }), 'Profile: $& {name} <script>');

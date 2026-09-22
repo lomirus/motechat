@@ -7,7 +7,9 @@
   let { message }: { message: Message } = $props();
 
   function duration(ms: number) {
-    return ms >= 1000 ? `${(ms / 1000).toLocaleString($language, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}s` : `${Math.round(ms)}ms`;
+    return ms >= 1000
+      ? $t('{count} s', { count: (ms / 1000).toLocaleString($language, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })
+      : $t('{count} ms', { count: Math.round(ms).toLocaleString($language) });
   }
 
   let stats = $derived(([
